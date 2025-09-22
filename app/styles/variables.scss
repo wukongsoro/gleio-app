@@ -1,0 +1,368 @@
+/* Galaxy Dark Matter Design System Variables */
+:root {
+  /* Border Radius */
+  --radius: 0.65rem;
+  
+  /* Dark Matter Color System - Deep Space Palette */
+  --space-void: 0 0% 4%;           /* #0a0a0a - Deep void */
+  --space-dark: 0 0% 8%;           /* #141414 - Dark matter */
+  --space-deep: 0 0% 12%;          /* #1f1f1f - Deep space */
+  --space-medium: 0 0% 16%;        /* #292929 - Medium space */
+  --space-light: 0 0% 20%;         /* #333333 - Light space */
+  --stellar-dim: 0 0% 45%;         /* #737373 - Dim stellar */
+  --stellar-bright: 0 0% 65%;      /* #a6a6a6 - Bright stellar */
+  --stellar-white: 0 0% 85%;       /* #d9d9d9 - White stellar */
+  --cosmic-accent: 240 8% 50%;     /* #7a7a8a - Subtle cosmic accent */
+  --void-border: 0 0% 100%;        /* For subtle borders */
+  
+  /* Border Colors */
+  --border-l1: hsl(var(--void-border)/4%);
+  
+  /* Text Colors */
+  --fg-primary: var(--stellar-white);
+  --foreground: hsl(var(--stellar-dim));
+  
+  /* Scrollbar */
+  --scrollbar-thumb-dimmed: rgba(255,255,255,0.08);
+  --scrollbar-track: transparent;
+  
+  /* Highlight */
+  --highlight: hsl(var(--cosmic-accent)/0.15);
+  
+  /* Typography */
+  --font-universal-sans: ui-sans-serif,-apple-system,system-ui,Segoe UI,Helvetica,Apple Color Emoji,Arial,sans-serif,Segoe UI Emoji,Segoe UI Symbol;
+  --font-inter: ui-sans-serif,-apple-system,system-ui,Segoe UI,Helvetica,Apple Color Emoji,Arial,sans-serif,Segoe UI Emoji,Segoe UI Symbol;
+  
+  /* Tailwind CSS Variables */
+  --tw-border-spacing-x: 0;
+  --tw-border-spacing-y: 0;
+  --tw-translate-x: 0;
+  --tw-translate-y: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  --tw-pan-x: ;
+  --tw-pan-y: ;
+  --tw-pinch-zoom: ;
+  --tw-scroll-snap-strictness: proximity;
+  --tw-gradient-from-position: ;
+  --tw-gradient-via-position: ;
+  --tw-gradient-to-position: ;
+  --tw-ordinal: ;
+  --tw-slashed-zero: ;
+  --tw-numeric-figure: ;
+  --tw-numeric-spacing: ;
+  --tw-numeric-fraction: ;
+  --tw-ring-inset: ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #141414;
+  --tw-ring-color: hsl(var(--cosmic-accent)/0.3);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  --tw-blur: ;
+  --tw-brightness: ;
+  --tw-contrast: ;
+  --tw-grayscale: ;
+  --tw-hue-rotate: ;
+  --tw-invert: ;
+  --tw-saturate: ;
+  --tw-sepia: ;
+  --tw-drop-shadow: ;
+  --tw-backdrop-blur: ;
+  --tw-backdrop-brightness: ;
+  --tw-backdrop-contrast: ;
+  --tw-backdrop-grayscale: ;
+  --tw-backdrop-hue-rotate: ;
+  --tw-backdrop-invert: ;
+  --tw-backdrop-opacity: ;
+  --tw-backdrop-saturate: ;
+  --tw-backdrop-sepia: ;
+  --tw-contain-size: ;
+  --tw-contain-layout: ;
+  --tw-contain-paint: ;
+  --tw-contain-style: ;
+}
+
+/* Dark Theme Overrides - Galaxy Dark Matter */
+.dark,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  
+  /* Border Colors */
+  --border-l1: hsl(var(--void-border)/6%);
+  
+  /* Text Colors */
+  --fg-primary: var(--stellar-white);
+  --foreground: hsl(var(--stellar-dim));
+  
+  /* Scrollbar */
+  --scrollbar-thumb-dimmed: rgba(255,255,255,0.08);
+  --scrollbar-track: transparent;
+}
+
+/* Galaxy Dark Matter Element Tokens */
+:root,
+:root[data-theme='dark'] {
+  --conformity-elements-borderColor: rgba(255, 255, 255, 0.06);
+  --conformity-elements-borderColorActive: rgba(255, 255, 255, 0.12);
+
+  --conformity-elements-bg-depth-1: hsl(var(--space-void));      /* #0a0a0a */
+  --conformity-elements-bg-depth-2: hsl(var(--space-dark));      /* #141414 */
+  --conformity-elements-bg-depth-3: hsl(var(--space-deep));      /* #1f1f1f */
+  --conformity-elements-bg-depth-4: rgba(255, 255, 255, 0.02);
+
+  --conformity-elements-textPrimary: hsl(var(--stellar-white));    /* #d9d9d9 */
+  --conformity-elements-textSecondary: hsl(var(--stellar-bright)); /* #a6a6a6 */
+  --conformity-elements-textTertiary: hsl(var(--stellar-dim));     /* #737373 */
+
+  --conformity-elements-code-background: hsl(var(--space-deep));
+  --conformity-elements-code-text: hsl(var(--stellar-white));
+
+  --conformity-elements-button-primary-background: rgba(255, 255, 255, 0.06);
+  --conformity-elements-button-primary-backgroundHover: rgba(255, 255, 255, 0.12);
+  --conformity-elements-button-primary-text: hsl(var(--stellar-white));
+
+  --conformity-elements-button-secondary-background: rgba(255, 255, 255, 0.04);
+  --conformity-elements-button-secondary-backgroundHover: rgba(255, 255, 255, 0.08);
+  --conformity-elements-button-secondary-text: hsl(var(--stellar-bright));
+
+  --conformity-elements-button-danger-background: rgba(255, 100, 100, 0.08);
+  --conformity-elements-button-danger-backgroundHover: rgba(255, 100, 100, 0.15);
+  --conformity-elements-button-danger-text: #ff8888;
+
+  --conformity-elements-item-contentDefault: hsl(var(--stellar-bright));
+  --conformity-elements-item-contentActive: hsl(var(--stellar-white));
+  --conformity-elements-item-contentAccent: hsl(var(--stellar-white));
+  --conformity-elements-item-contentDanger: #ff8888;
+  --conformity-elements-item-backgroundDefault: rgba(255, 255, 255, 0);
+  --conformity-elements-item-backgroundActive: rgba(255, 255, 255, 0.08);
+  --conformity-elements-item-backgroundAccent: rgba(255, 255, 255, 0.06);
+  --conformity-elements-item-backgroundDanger: rgba(255, 100, 100, 0.08);
+
+  --conformity-elements-loader-background: rgba(255, 255, 255, 0.06);
+  --conformity-elements-loader-progress: hsl(var(--stellar-white));
+
+  --conformity-elements-artifacts-background: hsl(var(--space-dark));
+  --conformity-elements-artifacts-backgroundHover: rgba(255, 255, 255, 0.04);
+  --conformity-elements-artifacts-borderColor: var(--conformity-elements-borderColor);
+  --conformity-elements-artifacts-inlineCode-background: hsl(var(--space-deep));
+  --conformity-elements-artifacts-inlineCode-text: hsl(var(--stellar-white));
+
+  --conformity-elements-actions-background: hsl(var(--space-dark));
+  --conformity-elements-actions-code-background: hsl(var(--space-deep));
+
+  --conformity-elements-messages-background: hsl(var(--space-dark));
+  --conformity-elements-messages-linkColor: hsl(var(--stellar-white));
+  --conformity-elements-messages-code-background: hsl(var(--space-void));
+  --conformity-elements-messages-inlineCode-background: hsl(var(--space-medium));
+  --conformity-elements-messages-inlineCode-text: hsl(var(--stellar-white));
+
+  --conformity-elements-icon-success: #88cc88;
+  --conformity-elements-icon-error: #ff8888;
+  --conformity-elements-icon-primary: hsl(var(--stellar-white));
+  --conformity-elements-icon-secondary: hsl(var(--stellar-bright));
+  --conformity-elements-icon-tertiary: hsl(var(--stellar-dim));
+
+  --conformity-elements-dividerColor: rgba(255, 255, 255, 0.06);
+
+  --conformity-elements-prompt-background: rgba(20, 20, 20, 0.95);
+
+  --conformity-elements-sidebar-dropdownShadow: rgba(0, 0, 0, 0.4);
+  --conformity-elements-sidebar-buttonBackgroundDefault: rgba(255, 255, 255, 0.06);
+  --conformity-elements-sidebar-buttonBackgroundHover: rgba(255, 255, 255, 0.12);
+  --conformity-elements-sidebar-buttonText: hsl(var(--stellar-white));
+
+  --conformity-elements-preview-addressBar-background: hsl(var(--space-void));
+  --conformity-elements-preview-addressBar-backgroundHover: rgba(255, 255, 255, 0.04);
+  --conformity-elements-preview-addressBar-backgroundActive: hsl(var(--space-void));
+  --conformity-elements-preview-addressBar-text: hsl(var(--stellar-bright));
+  --conformity-elements-preview-addressBar-textActive: hsl(var(--stellar-white));
+
+  --conformity-elements-terminals-background: hsl(var(--space-void));
+  --conformity-elements-terminals-buttonBackground: hsl(var(--space-deep));
+
+  --conformity-elements-cta-background: rgba(255, 255, 255, 0.06);
+  --conformity-elements-cta-text: hsl(var(--stellar-white));
+
+  /* Terminal Colors - Galaxy Theme */
+  --conformity-terminal-background: hsl(var(--space-void));
+  --conformity-terminal-foreground: hsl(var(--stellar-white));
+  --conformity-terminal-selection-background: rgba(255, 255, 255, 0.15);
+  --conformity-terminal-black: #000000;
+  --conformity-terminal-red: #ff8888;
+  --conformity-terminal-green: #88cc88;
+  --conformity-terminal-yellow: #ffcc88;
+  --conformity-terminal-blue: #88ccff;
+  --conformity-terminal-magenta: #cc88ff;
+  --conformity-terminal-cyan: #88ffcc;
+  --conformity-terminal-white: hsl(var(--stellar-bright));
+  --conformity-terminal-brightBlack: hsl(var(--stellar-dim));
+  --conformity-terminal-brightRed: #ffaaaa;
+  --conformity-terminal-brightGreen: #aaffaa;
+  --conformity-terminal-brightYellow: #ffffaa;
+  --conformity-terminal-brightBlue: #aaffff;
+  --conformity-terminal-brightMagenta: #ffaaff;
+  --conformity-terminal-brightCyan: #aaffff;
+  --conformity-terminal-brightWhite: hsl(var(--stellar-white));
+
+  /* App Gradient Variables (Dark Theme) - Neutral by default; override in `.home-theme` */
+  --app-gradient-radial-1: rgba(0, 0, 0, 0);
+  --app-gradient-radial-2: rgba(0, 0, 0, 0);
+  --app-gradient-linear-top: rgba(0, 0, 0, 0);
+  --app-gradient-linear-bottom: rgba(0, 0, 0, 0);
+}
+
+/* Light Theme Fallback - Minimal for Galaxy Theme */
+:root[data-theme='light'] {
+  --conformity-elements-borderColor: rgba(0, 0, 0, 0.08);
+  --conformity-elements-borderColorActive: rgba(0, 0, 0, 0.15);
+
+  --conformity-elements-bg-depth-1: #ffffff;
+  --conformity-elements-bg-depth-2: #fafafa;
+  --conformity-elements-bg-depth-3: #f5f5f5;
+  --conformity-elements-bg-depth-4: rgba(0, 0, 0, 0.02);
+
+  --conformity-elements-textPrimary: #1a1a1a;
+  --conformity-elements-textSecondary: #666666;
+  --conformity-elements-textTertiary: #999999;
+
+  --conformity-elements-code-background: #f5f5f5;
+  --conformity-elements-code-text: #1a1a1a;
+
+  --conformity-elements-button-primary-background: rgba(0, 0, 0, 0.06);
+  --conformity-elements-button-primary-backgroundHover: rgba(0, 0, 0, 0.12);
+  --conformity-elements-button-primary-text: #1a1a1a;
+
+  --conformity-elements-button-secondary-background: rgba(0, 0, 0, 0.04);
+  --conformity-elements-button-secondary-backgroundHover: rgba(0, 0, 0, 0.08);
+  --conformity-elements-button-secondary-text: #666666;
+
+  --conformity-elements-button-danger-background: rgba(220, 38, 38, 0.1);
+  --conformity-elements-button-danger-backgroundHover: rgba(220, 38, 38, 0.2);
+  --conformity-elements-button-danger-text: #dc2626;
+
+  --conformity-elements-item-contentDefault: #666666;
+  --conformity-elements-item-contentActive: #1a1a1a;
+  --conformity-elements-item-contentAccent: #1a1a1a;
+  --conformity-elements-item-contentDanger: #dc2626;
+  --conformity-elements-item-backgroundDefault: rgba(0, 0, 0, 0);
+  --conformity-elements-item-backgroundActive: rgba(0, 0, 0, 0.08);
+  --conformity-elements-item-backgroundAccent: rgba(0, 0, 0, 0.06);
+  --conformity-elements-item-backgroundDanger: rgba(220, 38, 38, 0.1);
+
+  --conformity-elements-loader-background: rgba(0, 0, 0, 0.06);
+  --conformity-elements-loader-progress: #1a1a1a;
+
+  --conformity-elements-artifacts-background: #fafafa;
+  --conformity-elements-artifacts-backgroundHover: rgba(0, 0, 0, 0.04);
+  --conformity-elements-artifacts-borderColor: var(--conformity-elements-borderColor);
+  --conformity-elements-artifacts-inlineCode-background: #f5f5f5;
+  --conformity-elements-artifacts-inlineCode-text: #1a1a1a;
+
+  --conformity-elements-actions-background: #fafafa;
+  --conformity-elements-actions-code-background: #f5f5f5;
+
+  --conformity-elements-messages-background: #fafafa;
+  --conformity-elements-messages-linkColor: #1a1a1a;
+  --conformity-elements-messages-code-background: #ffffff;
+  --conformity-elements-messages-inlineCode-background: #f0f0f0;
+  --conformity-elements-messages-inlineCode-text: #1a1a1a;
+
+  --conformity-elements-icon-success: #059669;
+  --conformity-elements-icon-error: #dc2626;
+  --conformity-elements-icon-primary: #1a1a1a;
+  --conformity-elements-icon-secondary: #666666;
+  --conformity-elements-icon-tertiary: #999999;
+
+  --conformity-elements-dividerColor: rgba(0, 0, 0, 0.08);
+
+  --conformity-elements-prompt-background: rgba(255, 255, 255, 0.95);
+
+  --conformity-elements-sidebar-dropdownShadow: rgba(0, 0, 0, 0.1);
+  --conformity-elements-sidebar-buttonBackgroundDefault: rgba(0, 0, 0, 0.06);
+  --conformity-elements-sidebar-buttonBackgroundHover: rgba(0, 0, 0, 0.12);
+  --conformity-elements-sidebar-buttonText: #1a1a1a;
+
+  --conformity-elements-preview-addressBar-background: #ffffff;
+  --conformity-elements-preview-addressBar-backgroundHover: rgba(0, 0, 0, 0.04);
+  --conformity-elements-preview-addressBar-backgroundActive: #ffffff;
+  --conformity-elements-preview-addressBar-text: #666666;
+  --conformity-elements-preview-addressBar-textActive: #1a1a1a;
+
+  --conformity-elements-terminals-background: #ffffff;
+  --conformity-elements-terminals-buttonBackground: #f5f5f5;
+
+  --conformity-elements-cta-background: rgba(0, 0, 0, 0.06);
+  --conformity-elements-cta-text: #1a1a1a;
+
+  /* Terminal Colors - Light Theme */
+  --conformity-terminal-background: #ffffff;
+  --conformity-terminal-foreground: #1a1a1a;
+  --conformity-terminal-selection-background: rgba(0, 0, 0, 0.15);
+  --conformity-terminal-black: #000000;
+  --conformity-terminal-red: #dc2626;
+  --conformity-terminal-green: #059669;
+  --conformity-terminal-yellow: #d97706;
+  --conformity-terminal-blue: #2563eb;
+  --conformity-terminal-magenta: #9333ea;
+  --conformity-terminal-cyan: #0891b2;
+  --conformity-terminal-white: #666666;
+  --conformity-terminal-brightBlack: #999999;
+  --conformity-terminal-brightRed: #ef4444;
+  --conformity-terminal-brightGreen: #10b981;
+  --conformity-terminal-brightYellow: #f59e0b;
+  --conformity-terminal-brightBlue: #3b82f6;
+  --conformity-terminal-brightMagenta: #a855f7;
+  --conformity-terminal-brightCyan: #06b6d4;
+  --conformity-terminal-brightWhite: #1a1a1a;
+
+  /* App Gradient Variables (Light Theme) - Neutral by default; override in `.home-theme` */
+  --app-gradient-radial-1: rgba(0, 0, 0, 0);
+  --app-gradient-radial-2: rgba(0, 0, 0, 0);
+  --app-gradient-linear-top: rgba(0, 0, 0, 0);
+  --app-gradient-linear-bottom: rgba(0, 0, 0, 0);
+}
+
+/*
+ * Element Tokens
+ *
+ * Hierarchy: Element Token -> (Element Token | Color Tokens) -> Primitives
+ */
+:root {
+  --header-height: 54px;
+  --chat-max-width: 37rem;
+  --chat-min-width: 640px;
+  --workbench-width: min(calc(100% - var(--chat-min-width)), 1536px);
+  --workbench-inner-width: var(--workbench-width);
+  --workbench-left: calc(100% - var(--workbench-width));
+
+  /* Toasts */
+  --toastify-color-progress-success: var(--conformity-elements-icon-success);
+  --toastify-color-progress-error: var(--conformity-elements-icon-error);
+
+  /* Terminal */
+  --conformity-elements-terminal-backgroundColor: var(--conformity-terminal-background);
+  --conformity-elements-terminal-textColor: var(--conformity-terminal-foreground);
+  --conformity-elements-terminal-cursorColor: var(--conformity-terminal-foreground);
+  --conformity-elements-terminal-selection-backgroundColor: var(--conformity-terminal-selection-background);
+  --conformity-elements-terminal-color-black: var(--conformity-terminal-black);
+  --conformity-elements-terminal-color-red: var(--conformity-terminal-red);
+  --conformity-elements-terminal-color-green: var(--conformity-terminal-green);
+  --conformity-elements-terminal-color-yellow: var(--conformity-terminal-yellow);
+  --conformity-elements-terminal-color-blue: var(--conformity-terminal-blue);
+  --conformity-elements-terminal-color-magenta: var(--conformity-terminal-magenta);
+  --conformity-elements-terminal-color-cyan: var(--conformity-terminal-cyan);
+  --conformity-elements-terminal-color-white: var(--conformity-terminal-white);
+  --conformity-elements-terminal-color-brightBlack: var(--conformity-terminal-brightBlack);
+  --conformity-elements-terminal-color-brightRed: var(--conformity-terminal-brightRed);
+  --conformity-elements-terminal-color-brightGreen: var(--conformity-terminal-brightGreen);
+  --conformity-elements-terminal-color-brightYellow: var(--conformity-terminal-brightYellow);
+  --conformity-elements-terminal-color-brightBlue: var(--conformity-terminal-brightBlue);
+  --conformity-elements-terminal-color-brightMagenta: var(--conformity-terminal-brightMagenta);
+  --conformity-elements-terminal-color-brightCyan: var(--conformity-terminal-brightCyan);
+  --conformity-elements-terminal-color-brightWhite: var(--conformity-terminal-brightWhite);
+}

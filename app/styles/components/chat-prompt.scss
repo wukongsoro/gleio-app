@@ -1,0 +1,202 @@
+/* PromptBox Styles */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-dimmed) var(--scrollbar-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-dimmed);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb);
+}
+
+/* Additional CSS Variables for Radix components */
+:root {
+  --radius: 0.65rem;
+  --popover: hsl(var(--background));
+  --popover-foreground: hsl(var(--foreground));
+  --accent: hsl(240 4.8% 95.9%);
+  --accent-foreground: hsl(240 5.9% 10%);
+  --border: hsl(240 5.9% 90%);
+  --muted-foreground: hsl(240 3.8% 46.1%);
+  --ring: hsl(240 5% 64.9%);
+}
+
+[data-theme="dark"] {
+  --popover: hsl(var(--background));
+  --popover-foreground: hsl(var(--foreground));
+  --accent: hsl(240 3.7% 15.9%);
+  --accent-foreground: hsl(240 4.8% 95.9%);
+  --border: hsl(240 3.7% 15.9%);
+  --muted-foreground: hsl(240 5% 64.9%);
+  --ring: hsl(240 4.9% 83.9%);
+}
+
+/* Animation keyframes for Radix UI */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes zoom-in-95 {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes zoom-out-95 {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes slide-in-from-top-2 {
+  from {
+    transform: translateY(-8px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-from-bottom-2 {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-from-left-2 {
+  from {
+    transform: translateX(-8px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-from-right-2 {
+  from {
+    transform: translateX(8px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-in {
+  animation-duration: 0.15s;
+  animation-fill-mode: both;
+}
+
+.fade-in-0 {
+  animation-name: fade-in;
+}
+
+.fade-out-0 {
+  animation-name: fade-out;
+}
+
+.zoom-in-95 {
+  animation-name: zoom-in-95;
+}
+
+.zoom-out-95 {
+  animation-name: zoom-out-95;
+}
+
+.data-\[state\=open\]\:animate-in[data-state="open"] {
+  animation-duration: 0.15s;
+  animation-fill-mode: both;
+}
+
+.data-\[state\=closed\]\:animate-out[data-state="closed"] {
+  animation-duration: 0.15s;
+  animation-fill-mode: both;
+}
+
+.data-\[state\=closed\]\:fade-out-0[data-state="closed"] {
+  animation-name: fade-out;
+}
+
+.data-\[state\=open\]\:fade-in-0[data-state="open"] {
+  animation-name: fade-in;
+}
+
+.data-\[state\=open\]\:zoom-in-95[data-state="open"] {
+  animation-name: zoom-in-95;
+}
+
+.data-\[state\=closed\]\:zoom-out-95[data-state="closed"] {
+  animation-name: zoom-out-95;
+}
+
+.data-\[side\=bottom\]\:slide-in-from-top-2[data-side="bottom"] {
+  animation-name: slide-in-from-top-2;
+}
+
+.data-\[side\=left\]\:slide-in-from-right-2[data-side="left"] {
+  animation-name: slide-in-from-right-2;
+}
+
+.data-\[side\=right\]\:slide-in-from-left-2[data-side="right"] {
+  animation-name: slide-in-from-left-2;
+}
+
+.data-\[side\=top\]\:slide-in-from-bottom-2[data-side="top"] {
+  animation-name: slide-in-from-bottom-2;
+}
+
+/*
+  Prompt container baseline styles derived from user-provided CSS.
+  Intentionally excludes fixed width/height and border widths to avoid layout regressions.
+*/
+.prompt-container {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  flex-basis: auto;
+  flex-shrink: 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-theme="dark"] .prompt-container {
+  color-scheme: dark;
+}

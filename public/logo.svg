@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Gleio AI logo">
+  <defs>
+    <linearGradient id="gleioGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff2d55"/>
+      <stop offset="100%" stop-color="#0a84ff"/>
+    </linearGradient>
+  </defs>
+  <!-- Outer ring forming a stylized G -->
+  <path fill="url(#gleioGradient)" fill-rule="evenodd" d="M64 8c30.928 0 56 25.072 56 56s-25.072 56-56 56S8 94.928 8 64 33.072 8 64 8zm0 12C39.043 20 20 39.043 20 64s19.043 44 44 44c22.895 0 41.76-17.51 43.83-39.84H86a6 6 0 0 1 0-12h28.09C111.88 33.833 90.79 20 64 20Z M98 74 L112 70 L112 88 Z"/>
+  <!-- Inner cut to keep mark light and scalable -->
+  <circle cx="64" cy="64" r="30" fill="none" stroke="black" opacity="0.0"/>
+</svg>

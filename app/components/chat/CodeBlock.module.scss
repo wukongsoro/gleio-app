@@ -1,0 +1,123 @@
+.CodeContent {
+  // Ensure proper syntax highlighting colors
+  pre {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    font-family: 'Fira Code', 'Monaco', 'Consolas', 'Ubuntu Mono', monospace !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    overflow-x: auto;
+    
+    code {
+      background: transparent !important;
+      padding: 0 !important;
+      border: none !important;
+      color: inherit !important;
+      font-family: inherit !important;
+      font-size: inherit !important;
+      line-height: inherit !important;
+      white-space: pre;
+      word-wrap: normal;
+      word-break: normal;
+      overflow-wrap: normal;
+      tab-size: 4;
+      hyphens: none;
+    }
+  }
+  
+  // Enhanced scrollbar styling
+  &::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #161b22;
+    border-radius: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #484f58;
+    }
+  }
+  
+  // Line numbers styling if present
+  .line-numbers {
+    counter-reset: line-number;
+    
+    .line {
+      counter-increment: line-number;
+      position: relative;
+      padding-left: 3.5em;
+      
+      &::before {
+        content: counter(line-number);
+        position: absolute;
+        left: 0;
+        width: 2.5em;
+        text-align: right;
+        color: #484f58;
+    font-size: 12px;
+        line-height: inherit;
+        user-select: none;
+      }
+    }
+  }
+  
+  // Selection styling
+  ::selection {
+    background: rgba(56, 139, 253, 0.4);
+  }
+  
+  // Enhanced token styling
+  .token {
+    &.comment {
+      color: #8b949e !important;
+      font-style: italic;
+    }
+    
+    &.string {
+      color: #a5d6ff !important;
+    }
+    
+    &.keyword {
+      color: #ff7b72 !important;
+      font-weight: 600;
+    }
+    
+    &.function {
+      color: #d2a8ff !important;
+    }
+    
+    &.variable {
+      color: #79c0ff !important;
+    }
+    
+    &.number {
+      color: #79c0ff !important;
+    }
+    
+    &.operator {
+      color: #ff7b72 !important;
+    }
+    
+    &.punctuation {
+      color: #c9d1d9 !important;
+    }
+  }
+  
+  // Professional hover effects
+  &:hover {
+    .line {
+      background: rgba(56, 139, 253, 0.05);
+      transition: background 0.15s ease;
+    }
+  }
+}

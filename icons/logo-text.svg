@@ -1,0 +1,14 @@
+<svg width="180" height="40" viewBox="0 0 180 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:currentColor;stop-opacity:0.9" />
+      <stop offset="25%" style="stop-color:currentColor;stop-opacity:0.7" />
+      <stop offset="50%" style="stop-color:currentColor;stop-opacity:1" />
+      <stop offset="75%" style="stop-color:currentColor;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:currentColor;stop-opacity:0.9" />
+    </linearGradient>
+  </defs>
+  <text x="10" y="28" font-family="SF Pro Display, Inter, ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="700" letter-spacing="0.2px" fill="url(#textGradient)">
+    Gleio AI
+  </text>
+</svg>
