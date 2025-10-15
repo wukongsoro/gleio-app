@@ -1,12 +1,15 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
-import { streamText } from '~/lib/.server/llm/stream-text';
-import { stripIndents } from '~/utils/stripIndent';
+// Server imports moved inside the action function to prevent client bundling
 
 export async function action(args: ActionFunctionArgs) {
   return enhancerAction(args);
 }
 
 async function enhancerAction({ context, request }: ActionFunctionArgs) {
+  // Dynamic imports for server-only modules to prevent client bundling
+  const { streamText } = await import('~/lib/.server/llm/stream-text');
+  const { stripIndents } = await import('~/utils/stripIndent');
+
   try {
     // load .env.local in dev to populate process.env when running `pnpm dev`
     if (import.meta.env.DEV) {

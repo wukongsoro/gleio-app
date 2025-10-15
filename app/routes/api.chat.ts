@@ -1,6 +1,5 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
-import { streamText, type Messages, type StreamingOptions } from '~/lib/.server/llm/stream-text';
-import { getSystemPrompt } from '~/lib/.server/llm/prompts';
+// Server imports moved inside the action function to prevent client bundling
 // switchable streaming removed; returning SDK stream directly
 
 // Memory management constants
@@ -145,6 +144,14 @@ export async function action(args: ActionFunctionArgs) {
 async function chatAction({ context, request }: ActionFunctionArgs) {
   console.log('=== CHAT ACTION STARTED ===');
   let cleanup: (() => void) | null = null;
+
+  // Dynamic imports for server-only modules to prevent client bundling
+  const { streamText } = await import('~/lib/.server/llm/stream-text');
+  const { getSystemPrompt } = await import('~/lib/.server/llm/prompts');
+
+  // Define types locally to avoid import issues
+  type Messages = any[];
+  type StreamingOptions = any;
 
   try {
     // load .env.local in dev to populate process.env when running `pnpm dev`
