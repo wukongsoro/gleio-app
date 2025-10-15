@@ -4,7 +4,6 @@
   "private": true,
   "license": "MIT",
   "packageManager": "pnpm@9.4.0",
-  "sideEffects": false,
   "type": "module",
   "scripts": {
     "deploy": "npm run build && wrangler pages deploy",

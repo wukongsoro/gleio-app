@@ -23,7 +23,7 @@ export default defineConfig((config) => {
     },
     plugins: [
       nodePolyfills({
-        include: ['buffer'],
+        include: ['buffer', 'crypto', 'stream', 'http', 'https', 'url', 'zlib', 'path', 'punycode'],
         protocolImports: true,
         globals: {
           Buffer: true,
@@ -59,6 +59,7 @@ export default defineConfig((config) => {
     },
     ssr: {
       noExternal: ['@supabase/supabase-js'],
+      external: ['crypto', 'stream', 'http', 'https', 'url', 'zlib', 'punycode'],
     },
   };
 });
