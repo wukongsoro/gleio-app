@@ -21,7 +21,7 @@ export type ArtifactUpdateState = Pick<ArtifactState, 'title' | 'closed'>;
 
 type Artifacts = MapStore<Record<string, ArtifactState>>;
 
-export type WorkbenchViewType = 'code' | 'preview';
+export type WorkbenchViewType = 'code' | 'preview' | 'research';
 
 export class WorkbenchStore {
   #previewsStore = new PreviewsStore(webcontainer);
@@ -50,8 +50,16 @@ export class WorkbenchStore {
     return this.#previewsStore.previews;
   }
 
+  get previewsStore() {
+    return this.#previewsStore;
+  }
+
   get files() {
     return this.#filesStore.files;
+  }
+
+  get filesStore() {
+    return this.#filesStore;
   }
 
   get currentDocument(): ReadableAtom<EditorDocument | undefined> {
@@ -70,6 +78,7 @@ export class WorkbenchStore {
     return this.#filesStore.filesCount;
   }
 
+
   get showTerminal() {
     return this.#terminalStore.showTerminal;
   }
@@ -84,6 +93,13 @@ export class WorkbenchStore {
 
   onTerminalResize(cols: number, rows: number) {
     this.#terminalStore.onTerminalResize(cols, rows);
+  }
+
+  writeToTerminals(data: string) {
+    const message = typeof data === 'string' ? data : String(data ?? '');
+    for (const { terminal } of this.#terminalStore.getTerminals()) {
+      terminal.write(message);
+    }
   }
 
   setDocuments(files: FileMap) {

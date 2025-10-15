@@ -19,14 +19,15 @@ export const loader = () => json({});
 
 export default function Index() {
   const { pathname } = useLocation();
-  const isHome = pathname === '/';
+  // Treat homepage and chat pages consistently with home theme
+  const isHome = pathname === '/' || !pathname.startsWith('/settings') && !pathname.startsWith('/login') && !pathname.startsWith('/signup');
   return (
-    <div className={`flex flex-col h-full w-full ${isHome ? 'home-theme bg-app-gradient' : ''}`}>
+    <div className={`flex flex-col h-full w-full home-theme bg-app-gradient`}>
       <ErrorBoundary>
-        <Header isHome={isHome} />
+        <Header isHome={pathname === '/'} />
       </ErrorBoundary>
       <ErrorBoundary>
-        <ClientOnly fallback={<BaseChat isHome={isHome} />}>{() => <Chat isHome={isHome} />}</ClientOnly>
+        <ClientOnly fallback={<BaseChat isHome={pathname === '/'} />}>{() => <Chat isHome={pathname === '/'} />}</ClientOnly>
       </ErrorBoundary>
       <ClientOnly>
         {() => <ChatOnlyIndicator />}

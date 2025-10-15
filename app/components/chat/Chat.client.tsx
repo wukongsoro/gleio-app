@@ -3,7 +3,7 @@ import { useStore } from '@nanostores/react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { useAnimate } from 'framer-motion';
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { cssTransition, toast, ToastContainer } from 'react-toastify';
 import { useMessageParser, usePromptEnhancer, useShortcuts, useSnapScroll } from '~/lib/hooks';
 import type { LegacyMessage } from '~/lib/hooks/useMessageParser';
@@ -11,6 +11,7 @@ import { useChatHistory } from '~/lib/persistence';
 import { chatStore } from '~/lib/stores/chat';
 import { knowledgeBaseStore } from '~/lib/stores/knowledge-base';
 import { workbenchStore } from '~/lib/stores/workbench';
+import { researchStore } from '~/lib/stores/research';
 import { fileModificationsToHTML } from '~/utils/diff';
 import { cubicEasingFn } from '~/utils/easings';
 import { createScopedLogger, renderLogger } from '~/utils/logger';
@@ -87,10 +88,18 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory, isHome = f
 
   const { showChat } = useStore(chatStore);
   const knowledgeBase = useStore(knowledgeBaseStore);
+  const deepSearchEnabled = useStore(researchStore.deepSearchEnabled);
 
   const [animationScope, animate] = useAnimate();
 
   const { isVisible: showFloatingLogin, hideFloatingLogin } = useFloatingLogin();
+
+  // Auto-open workbench when loading old chats with messages
+  useEffect(() => {
+    if ((initialMessages as unknown[]).length > 0) {
+      workbenchStore.showWorkbench.set(true);
+    }
+  }, [initialMessages.length]);
 
   // Get current user from database profile
   useEffect(() => {
@@ -191,13 +200,20 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory, isHome = f
     // OAuth will handle the redirect automatically
   };
 
-  const { messages, stop, sendMessage, status } = useChat({
+  const { messages, stop, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
     onError: (error: Error) => {
       logger.error('Request failed\n\n', error);
       toast.error('There was an error processing your request');
     },
   });
+
+  // Load initial messages from history
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0 && messages.length === 0) {
+      setMessages(initialMessages as any[]);
+    }
+  }, [initialMessages, messages.length, setMessages]);
 
   const [input, setInput] = useState('');
   const handleInputChange: React.ChangeEventHandler<HTMLTextAreaElement> = (event) => {
@@ -285,12 +301,83 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory, isHome = f
     setChatStarted(true);
   };
 
-  const sendMessageHandler = async (_event: React.UIEvent, messageInput?: string) => {
+  const sendMessageHandler = async (_event: React.UIEvent, messageInput?: string, deepSearch?: boolean) => {
     const _input = messageInput || input;
 
     if (_input.length === 0 || isLoading) {
       return;
     }
+
+    // Handle deep search mode
+    if (deepSearch) {
+      // Clear input and disable deep search
+      setInput('');
+      researchStore.deepSearchEnabled.set(false);
+      
+      // Run chat start animation if needed
+      if (!chatStarted) {
+        await runAnimation();
+      }
+      
+      // Start research in background
+      try {
+        // Open workbench to Research tab FIRST
+        workbenchStore.showWorkbench.set(true);
+        workbenchStore.currentView.set('research');
+
+        // Add a chat message indicating research started (without triggering transport)
+        const notificationText = `🔍 Starting deep research: "${_input}"\n\n📊 View progress in the Research tab →`;
+        const notificationId = globalThis.crypto?.randomUUID?.() ?? `research-${Date.now()}`;
+
+        setMessages((prevMessages: any[]) => {
+          const nextMessages = Array.isArray(prevMessages) ? [...prevMessages] : [];
+          nextMessages.push({
+            id: notificationId,
+            role: 'assistant',
+            content: notificationText,
+            parts: [
+              {
+                id: `${notificationId}-part`,
+                type: 'text',
+                text: notificationText,
+              },
+            ],
+          });
+          return nextMessages;
+        });
+
+        // Start the actual research
+        await researchStore.startResearch(_input, 'heavy');
+      } catch (error) {
+        toast.error('Failed to start research');
+        console.error('Research error:', error);
+
+        const errorText = '⚠️ Deep research failed to start. Please try again.';
+        const errorId = globalThis.crypto?.randomUUID?.() ?? `research-error-${Date.now()}`;
+
+        setMessages((prevMessages: any[]) => {
+          const nextMessages = Array.isArray(prevMessages) ? [...prevMessages] : [];
+          nextMessages.push({
+            id: errorId,
+            role: 'assistant',
+            content: errorText,
+            parts: [
+              {
+                id: `${errorId}-part`,
+                type: 'text',
+                text: errorText,
+              },
+            ],
+          });
+          return nextMessages;
+        });
+      }
+
+      return;
+    }
+
+    // Clear input immediately to prevent it from staying in the chatbox
+    setInput('');
 
     /**
      * @note (delm) Usually saving files shouldn't take long but it may take longer if there
@@ -338,14 +425,32 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory, isHome = f
       await sendMessage({ text: _input }, chatRequestOptions);
     }
 
-    setInput('');
-
     resetEnhancer();
 
     textareaRef.current?.blur();
   };
 
   const [messageRef, scrollRef] = useSnapScroll();
+
+  // Memoize processed messages to prevent unnecessary re-renders
+  const processedMessages = useMemo(() => {
+    return messages.map((message, i) => {
+      const content =
+        message.role === 'assistant'
+          ? parsedMessages[i] || getTextFromMessage(message as any)
+          : getTextFromMessage(message as any);
+
+      return { id: (message as any).id, role: message.role, content } as any;
+    });
+  }, [messages, parsedMessages]);
+
+  // Memoize enhance prompt handler to prevent creating new function on every render
+  const handleEnhancePrompt = useCallback(() => {
+    enhancePrompt(input, (enhancedInput) => {
+      setInput(enhancedInput);
+      scrollTextArea();
+    });
+  }, [input, enhancePrompt, scrollTextArea]);
 
   return (
     <>
@@ -365,20 +470,10 @@ export const ChatImpl = memo(({ initialMessages, storeMessageHistory, isHome = f
         handleStop={abort}
         isHome={isHome}
         user={currentUser}
-        messages={messages.map((message, i) => {
-          const content =
-            message.role === 'assistant'
-              ? parsedMessages[i] || getTextFromMessage(message as any)
-              : getTextFromMessage(message as any);
-
-          return { id: (message as any).id, role: message.role, content } as any;
-        })}
-        enhancePrompt={() => {
-          enhancePrompt(input, (input) => {
-            setInput(input);
-            scrollTextArea();
-          });
-        }}
+        messages={processedMessages}
+        deepSearchEnabled={deepSearchEnabled}
+        onToggleDeepSearch={() => researchStore.toggleDeepSearch()}
+        enhancePrompt={handleEnhancePrompt}
       />
 
       {/* Floating Login */}

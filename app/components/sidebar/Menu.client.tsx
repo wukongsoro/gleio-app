@@ -175,7 +175,12 @@ export function Menu() {
         // Migrate existing chats to current user if needed
         migrateChatsToUser(database, userId)
           .then(() => getAllByUser(database, userId))
-          .then((list: ChatHistoryItem[]) => list.filter((item: ChatHistoryItem) => item.urlId || item.description))
+          .then((list: ChatHistoryItem[]) => list.filter((item: ChatHistoryItem) => {
+            // Filter out items without proper identification
+            const hasIdentifier = item.urlId || item.id;
+            const hasContent = item.description || (item.messages && item.messages.length > 0);
+            return hasIdentifier && hasContent;
+          }))
           .then(setList)
           .catch((error: any) => toast.error(error.message));
       }
@@ -437,7 +442,7 @@ export function Menu() {
               <span className="absolute left-3 top-1/2 -translate-y-1/2 i-ph:magnifying-glass text-conformity-elements-textTertiary" />
               <input
                 placeholder="Search"
-                className="w-full pl-9 pr-3 py-2 rounded-md bg-conformity-elements-background-depth-3 border border-conformity-elements-borderColor text-conformity-elements-textPrimary placeholder-conformity-elements-textTertiary"
+                className="w-full pl-9 pr-3 py-2 rounded-md bg-white/5 border border-conformity-elements-borderColor text-conformity-elements-textPrimary placeholder-conformity-elements-textTertiary focus:bg-white/10 focus:border-conformity-elements-accent-primary/50 focus:outline-none transition-colors"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />

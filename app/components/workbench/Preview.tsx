@@ -16,6 +16,18 @@ export const Preview = memo(() => {
 
   const [url, setUrl] = useState('');
   const [iframeUrl, setIframeUrl] = useState<string | undefined>();
+  const [webcontainerFailed, setWebcontainerFailed] = useState(false);
+
+  // Listen for WebContainer failure events
+  useEffect(() => {
+    const handleWCError = () => {
+      setWebcontainerFailed(true);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('webcontainer-error', handleWCError);
+      return () => window.removeEventListener('webcontainer-error', handleWCError);
+    }
+  }, []);
 
   useEffect(() => {
     if (!activePreview) {
@@ -24,18 +36,15 @@ export const Preview = memo(() => {
       return;
     }
 
-    const { baseUrl } = activePreview;
+    const { baseUrl, currentUrl, ready } = activePreview;
     setUrl(baseUrl);
 
-    // add timestamp to force reload and prevent caching issues
-    try {
-      const u = new URL(baseUrl);
-      u.searchParams.set('t', String(Date.now()));
-      setIframeUrl(u.toString());
-    } catch {
-      // fallback to naive query param append
-      const sep = baseUrl.includes('?') ? '&' : '?';
-      setIframeUrl(`${baseUrl}${sep}t=${Date.now()}`);
+    if (ready && currentUrl) {
+      setIframeUrl(currentUrl);
+      // Clear WC failure flag when preview becomes ready
+      setWebcontainerFailed(false);
+    } else {
+      setIframeUrl(undefined);
     }
   }, [activePreview]);
 
@@ -144,8 +153,125 @@ export const Preview = memo(() => {
         )}
       </div>
       <div className="flex-1 border-t border-conformity-elements-borderColor">
-        {activePreview ? (
-          <iframe ref={iframeRef} className="border-none w-full h-full bg-white" src={iframeUrl} />
+        {previews.length > 0 ? (
+          activePreview ? (
+            <iframe
+              ref={iframeRef}
+              className="border-none w-full h-full bg-white"
+              src={iframeUrl || undefined}
+              srcDoc={
+                !iframeUrl
+                  ? webcontainerFailed
+                    ? `<!doctype html><meta charset="utf-8">
+<title>Preview Unavailable</title>
+<style>
+  body { 
+    font-family: system-ui, -apple-system, sans-serif; 
+    padding: 2rem; 
+    background: #0f172a; 
+    color: #e2e8f0; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    min-height: 100vh;
+    margin: 0;
+  }
+  .container { max-width: 640px; text-align: center; }
+  h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #f59e0b; }
+  p { margin: 0.75rem 0; line-height: 1.6; }
+  .note { 
+    background: rgba(251, 191, 36, 0.1); 
+    border: 1px solid rgba(251, 191, 36, 0.3); 
+    border-radius: 0.5rem; 
+    padding: 1rem; 
+    margin-top: 1.5rem;
+  }
+</style>
+<body>
+  <div class="container">
+    <h1>⚠️ Preview Temporarily Unavailable</h1>
+    <p>WebContainer couldn't start due to resource constraints (out of memory or too many instances).</p>
+    <p>✅ Your files were generated successfully and are visible in the editor.</p>
+    <div class="note">
+      <p><strong>The preview will start automatically</strong> as soon as system resources free up.</p>
+      <p style="margin-top: 0.5rem; font-size: 0.875rem;">Try closing other browser tabs or refreshing the page.</p>
+    </div>
+  </div>
+</body>`
+                    : `<!doctype html><meta charset="utf-8">
+<title>Loading Preview...</title>
+<style>
+  body { 
+    font-family: system-ui, -apple-system, sans-serif; 
+    padding: 2rem; 
+    background: #f8fafc; 
+    color: #475569; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    min-height: 100vh;
+    margin: 0;
+  }
+  .container { max-width: 640px; text-align: center; }
+  h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #3b82f6; }
+  p { margin: 0.75rem 0; line-height: 1.6; }
+  .spinner {
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <h1>🚀 Starting Preview...</h1>
+    <p>Setting up development server. This may take a moment.</p>
+  </div>
+</body>`
+                  : undefined
+              }
+              data-preview-port={activePreview.port}
+              data-preview={previews[activePreviewIndex] === activePreview ? 'active' : 'inactive'}
+            />
+          ) : (
+            <div className="flex w-full h-full justify-center items-center bg-white">
+              <div className="text-center p-8 max-w-md">
+                <div className="text-gray-500 text-lg mb-4">🚀 Starting Preview...</div>
+                <div className="text-gray-600 text-sm space-y-2">
+                  <p>Dev server is starting up. Available preview URLs:</p>
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-left">
+                    <div className="font-medium text-blue-800 mb-1">Try these URLs manually:</div>
+                    <ul className="text-blue-700 text-xs space-y-1">
+                      {previews.slice(0, 4).map((preview, index) => (
+                        <li key={preview.port}>
+                          <a
+                            href={preview.baseUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline"
+                          >
+                            {preview.baseUrl}
+                          </a>
+                          {!preview.ready && <span className="text-gray-500"> (may not be ready yet)</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Files are being created. The preview will update automatically when the dev server starts.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )
         ) : (
           <div className="flex w-full h-full justify-center items-center bg-white">
             <div className="text-center p-8 max-w-md">

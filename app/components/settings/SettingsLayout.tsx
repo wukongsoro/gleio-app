@@ -54,8 +54,8 @@ export function SettingsLayout({ activeTab, onTabChange, onClose, children }: Se
     <div className="fixed inset-0 z-50">
       {Backdrop}
       <div className="absolute left-1/2 top-[calc(var(--header-height)+1rem)] bottom-6 w-[min(1120px,calc(100%-1.5rem))] -translate-x-1/2">
-        <div className="flex h-full overflow-hidden rounded-2xl border border-conformity-elements-borderColor bg-conformity-elements-background-depth-2/75 shadow-[0_24px_60px_rgba(0,0,0,0.28)] backdrop-blur">
-          <aside className="w-64 border-r border-conformity-elements-borderColor/55 bg-conformity-elements-background-depth-3/45 p-6">
+        <div className="flex h-full overflow-hidden rounded-2xl border border-conformity-elements-borderColor bg-conformity-elements-background-depth-2/90 shadow-[0_24px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+          <aside className="w-64 border-r border-conformity-elements-borderColor/55 bg-conformity-elements-background-depth-3/60 p-6">
             <div className="mb-4 text-sm font-medium text-conformity-elements-textSecondary">Settings</div>
             <nav className="space-y-1.5">
               {TABS.map((tab) => {

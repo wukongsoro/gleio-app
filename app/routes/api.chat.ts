@@ -235,6 +235,18 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
       }];
     }
 
+    // Filter out repetitive greetings and maintain conversation context
+    const filteredMessages = messages.filter((message, index) => {
+      if (message.role === 'assistant' && index > 0) {
+        const content = typeof message.content === 'string' ? message.content.toLowerCase() : '';
+        // Remove repetitive greetings from AI responses
+        if (content.includes('hello') || content.includes('hey') || content.includes('hi there')) {
+          return false;
+        }
+      }
+      return true;
+    });
+
     // Always include the main system prompt first
     const mainSystemPrompt = getSystemPrompt();
     let systemMessages: Messages = [{ role: 'system', content: mainSystemPrompt } as any];
@@ -248,8 +260,8 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
       }
     }
     
-    // Prepend system messages to the conversation
-    messages = [...systemMessages, ...messages];
+    // Prepend system messages to the filtered conversation
+    messages = [...systemMessages, ...filteredMessages];
     console.log('Included main system prompt with boltArtifact formatting instructions');
     
     console.log('Final messages for processing:', messages.length);
@@ -325,10 +337,10 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(packageChunk)}\n\n`));
             }
 
-            // Extract npm install commands
+            // Extract npm install commands and emit pnpm-only
             if (content.includes('npm install') && !sentActions.has('npm-install')) {
               sentActions.add('npm-install');
-              const installAction = `<boltAction type="shell">npm install</boltAction>\n`;
+              const installAction = `<boltAction type="shell">pnpm install</boltAction>\n`;
               const installChunk = {
                 type: 'text-delta',
                 id: messageId,
@@ -337,10 +349,10 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
               controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(installChunk)}\n\n`));
             }
 
-            // Extract dev server commands
+            // Extract dev server commands and normalize to port 3000
             if (content.includes('npm run dev') && !sentActions.has('npm-run-dev')) {
               sentActions.add('npm-run-dev');
-              const devAction = `<boltAction type="shell">npm run dev -- --host 0.0.0.0 --port 3001</boltAction>\n`;
+              const devAction = `<boltAction type="shell">pnpm run dev</boltAction>\n`;
               const devChunk = {
                 type: 'text-delta',
                 id: messageId,

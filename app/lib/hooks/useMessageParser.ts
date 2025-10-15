@@ -119,9 +119,9 @@ export function useMessageParser() {
           const hasArtifacts = artifactFoundRef.current.has(message.id);
           const containsBoltArtifactTag = finalContent.includes('<boltArtifact');
 
-          // If artifacts were found, show only descriptive text in chat
+          // If artifacts were found, show descriptive text plus code blocks
           if (hasArtifacts) {
-            finalContent = 'I\'ve created the files in the workbench. You can see the code and preview in the side panel.';
+            finalContent = 'I\'ve created the files in the workbench. You can see the code and preview in the side panel.\n\n' + parsedContent;
           } else {
             finalContent = parsedContent;
           }

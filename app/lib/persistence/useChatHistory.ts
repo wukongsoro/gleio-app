@@ -34,7 +34,8 @@ export const currentUserId = atom<string | undefined>(undefined);
 
 export function useChatHistory() {
   const navigate = useNavigate();
-  const { id: mixedId } = useLoaderData<{ id?: string }>();
+  const loaderData = useLoaderData<{ id?: string }>();
+  const { id: mixedId } = loaderData || {};
 
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [ready, setReady] = useState<boolean>(false);
@@ -68,19 +69,26 @@ export function useChatHistory() {
     if (mixedId) {
       getMessages(db, mixedId)
         .then((storedMessages) => {
-          if (storedMessages && storedMessages.messages.length > 0) {
-            setInitialMessages(storedMessages.messages);
+          if (storedMessages) {
+            // Chat exists, load its data even if messages array is empty
+            setInitialMessages(storedMessages.messages || []);
             setUrlId(storedMessages.urlId);
             description.set(storedMessages.description);
             chatId.set(storedMessages.id);
+            setReady(true);
           } else {
+            // Chat not found, redirect to home
+            console.warn(`Chat with ID ${mixedId} not found`);
+            toast.error('Chat not found');
             navigate(`/`, { replace: true });
+            setReady(true);
           }
-
-          setReady(true);
         })
         .catch((error) => {
-          toast.error(error.message);
+          console.error('Error loading chat:', error);
+          toast.error('Failed to load chat: ' + error.message);
+          // Don't redirect on error, just show empty chat
+          setReady(true);
         });
     }
   }, [db, dbLoaded, mixedId, navigate]);
@@ -95,28 +103,34 @@ export function useChatHistory() {
 
       const { firstArtifact } = workbenchStore;
 
-      if (!urlId && firstArtifact?.id) {
-        const urlId = await getUrlId(db, firstArtifact.id);
+      // Ensure we have a chat ID first
+      if (initialMessages.length === 0 && !chatId.get()) {
+        const nextId = await getNextId(db);
+        chatId.set(nextId);
+      }
 
-        navigateChat(urlId);
-        setUrlId(urlId);
+      const currentChatId = chatId.get() as string;
+      
+      // Generate urlId if we have an artifact and don't have one yet
+      if (!urlId && firstArtifact?.id) {
+        const newUrlId = await getUrlId(db, firstArtifact.id);
+        navigateChat(newUrlId);
+        setUrlId(newUrlId);
+      }
+
+      // If still no urlId, use the chat ID as the urlId for navigation
+      const finalUrlId = urlId || currentChatId;
+      
+      if (!urlId) {
+        setUrlId(finalUrlId);
+        navigateChat(finalUrlId);
       }
 
       if (!description.get() && firstArtifact?.title) {
         description.set(firstArtifact?.title);
       }
 
-      if (initialMessages.length === 0 && !chatId.get()) {
-        const nextId = await getNextId(db);
-
-        chatId.set(nextId);
-
-        if (!urlId) {
-          navigateChat(nextId);
-        }
-      }
-
-      await setMessages(db, chatId.get() as string, messages, urlId, description.get(), currentUserId.get());
+      await setMessages(db, currentChatId, messages, finalUrlId, description.get(), currentUserId.get());
     },
   };
 }

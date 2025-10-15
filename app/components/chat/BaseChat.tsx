@@ -1,4 +1,4 @@
-import React, { type RefCallback } from 'react';
+import React, { type RefCallback, useMemo } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
 import { Menu } from '~/components/sidebar/Menu.client';
 import { IconButton } from '~/components/ui/IconButton';
@@ -28,11 +28,13 @@ interface BaseChatProps {
   promptEnhanced?: boolean;
   input?: string;
   handleStop?: () => void;
-  sendMessage?: (event: React.UIEvent, messageInput?: string) => void;
+  sendMessage?: (event: React.UIEvent, messageInput?: string, deepSearch?: boolean) => void;
   handleInputChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   enhancePrompt?: () => void;
   isHome?: boolean;
   user?: { name?: string };
+  deepSearchEnabled?: boolean;
+  onToggleDeepSearch?: () => void;
 }
 
 const SUGGESTION_CHIPS = [
@@ -109,11 +111,18 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       enhancePrompt,
       handleStop,
       user,
+      deepSearchEnabled = false,
+      onToggleDeepSearch,
     },
     ref,
   ) => {
     // Debug: BaseChat rendered with sendMessage
     const TEXTAREA_MAX_HEIGHT = chatStarted ? 400 : 200;
+    
+    // Memoize greeting to prevent it from changing on every render
+    const greeting = useMemo(() => {
+      return user?.name ? getGreeting(user) : "Welcome to Gleio";
+    }, [user?.name]);
       
     return (
         <div
@@ -123,51 +132,52 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             'relative flex h-full w-full overflow-hidden bg-transparent',
           )}
         data-chat-visible={showChat}
+        data-chat-started={chatStarted}
       >
         <ClientOnly>{() => <Menu />}</ClientOnly>
         <div ref={scrollRef} className="flex overflow-y-auto w-full h-full">
-          <div className={classNames(styles.Chat, 'flex flex-col flex-grow min-w-[var(--chat-min-width)] h-full')}>
+          <div className={classNames(styles.Chat, 'flex flex-col flex-grow h-full')}>
 
             {/* Chat Started View */}
             {chatStarted && (
-              <div className="px-8 h-full flex flex-col">
+              <div className="h-full flex flex-col">
                 <ClientOnly>
                   {() => (
                     <Messages
                       ref={messageRef}
-                      className="flex flex-col w-full flex-1 max-w-chat px-4 pb-6 mx-auto z-1"
+                      className="flex flex-col w-full flex-1 max-w-4xl px-4 pt-8 pb-4 mx-auto z-1 overflow-y-auto"
                       messages={messages}
                       isStreaming={isStreaming}
                     />
                   )}
                 </ClientOnly>
-                <div className="relative w-full max-w-chat mx-auto z-prompt sticky bottom-0">
-                  <div className="mb-6 relative overflow-hidden">
-                    <PromptBox
-                      ref={textareaRef}
-                      className="max-w-4xl mx-auto"
-                      value={input}
-                      onChange={handleInputChange}
-                      onEnhance={enhancePrompt}
-                      enhancingPrompt={enhancingPrompt}
-                      isStreaming={isStreaming}
-                      onStop={handleStop}
-                      onSubmit={(value, imageFile) => {
-                        if (isStreaming) {
-                          handleStop?.();
-                          return;
-                        }
-                        const syntheticEvent = {
-                          preventDefault: () => {},
-                          stopPropagation: () => {},
-                          type: 'submit',
-                          target: { value },
-                          currentTarget: { value },
-                        } as unknown as React.UIEvent;
-                        sendMessage?.(syntheticEvent, value);
-                      }}
-                    />
-                  </div>
+                <div className="relative w-full max-w-4xl mx-auto z-prompt px-4 pb-6 pt-2">
+                  <PromptBox
+                    ref={textareaRef}
+                    className="w-full"
+                    value={input}
+                    onChange={handleInputChange}
+                    onEnhance={enhancePrompt}
+                    enhancingPrompt={enhancingPrompt}
+                    isStreaming={isStreaming}
+                    onStop={handleStop}
+                    deepSearchEnabled={deepSearchEnabled}
+                    onToggleDeepSearch={onToggleDeepSearch}
+                    onSubmit={(value, imageFile, deepSearch) => {
+                      if (isStreaming) {
+                        handleStop?.();
+                        return;
+                      }
+                      const syntheticEvent = {
+                        preventDefault: () => {},
+                        stopPropagation: () => {},
+                        type: 'submit',
+                        target: { value },
+                        currentTarget: { value },
+                      } as unknown as React.UIEvent;
+                      sendMessage?.(syntheticEvent, value, deepSearch);
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -181,7 +191,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 {/* Greeting Section */}
                 <div className="mb-8 animate-fadeIn">
                   <p className={`text-3xl md:text-4xl lg:text-5xl text-center text-conformity-elements-textPrimary leading-snug tracking-tight ${user?.name ? 'font-medium' : 'font-semibold'}`}>
-                    {user?.name ? getGreeting(user) : "Welcome to Gleio"}
+                    {greeting}
                     {/* Example usage: <BaseChat user={{ name: "John" }} ... /> */}
                   </p>
                 </div>
@@ -198,7 +208,9 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                     enhancingPrompt={enhancingPrompt}
                     isStreaming={isStreaming}
                     onStop={handleStop}
-                    onSubmit={(value, imageFile) => {
+                    deepSearchEnabled={deepSearchEnabled}
+                    onToggleDeepSearch={onToggleDeepSearch}
+                    onSubmit={(value, imageFile, deepSearch) => {
                       if (isStreaming) {
                         handleStop?.();
                         return;
@@ -210,7 +222,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                         target: { value },
                         currentTarget: { value },
                       } as unknown as React.UIEvent;
-                      sendMessage?.(syntheticEvent, value);
+                      sendMessage?.(syntheticEvent, value, deepSearch);
                     }}
                   />
                   </div>

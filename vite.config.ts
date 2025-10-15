@@ -12,6 +12,11 @@ export default defineConfig((config) => {
       port: 5173,
       strictPort: true, // Prevent automatic port switching
       host: true, // Allow external access
+      headers: {
+        // Required for WebContainer SharedArrayBuffer support
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+      },
     },
     build: {
       target: 'esnext',

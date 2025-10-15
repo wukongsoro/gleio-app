@@ -1,14 +1,20 @@
 import { WebContainer } from '@webcontainer/api';
 import { map, type MapStore } from 'nanostores';
 import nodePath from '~/lib/polyfills/path.js';
+import { absInWorkdir, relToWorkdir } from '~/lib/webcontainer/path';
 import type { BoltAction } from '~/types/actions';
 import { createScopedLogger } from '~/utils/logger';
 import { unreachable } from '~/utils/unreachable';
 import type { ActionCallbackData } from './message-parser';
 import type { TerminalStore } from '~/lib/stores/terminal';
 import { workbenchStore } from '~/lib/stores/workbench';
+import { webcontainerContext } from '~/lib/webcontainer';
+import { extractCode, safeJsonParse } from '~/utils/sanitize';
 
 const logger = createScopedLogger('ActionRunner');
+
+// Reduce log noise in fallback mode
+let webContainerUnavailableLogged = false;
 
 export type ActionStatus = 'pending' | 'running' | 'complete' | 'aborted' | 'failed';
 
@@ -39,6 +45,74 @@ export class ActionRunner {
   #webcontainer: Promise<WebContainer>;
   #currentExecutionPromise: Promise<void> = Promise.resolve();
   #terminalStore?: TerminalStore;
+
+  /**
+   * Resolve the absolute project root path by scanning the in-memory files map
+   * for the first occurrence of package.json. Falls back to webcontainer.workdir.
+   */
+  async #getProjectRoot(): Promise<{ abs: string; rel: string }> {
+    const webcontainer = await this.#webcontainer;
+    try {
+      const files = workbenchStore.files.get();
+      const pkgCandidates = Object.entries(files)
+        .filter(([filePath, dirent]) => dirent?.type === 'file' && this.#isPackageJsonPath(filePath))
+        .map(([filePath]) => absInWorkdir(filePath))
+        .sort((a, b) => a.length - b.length);
+
+      if (pkgCandidates.length === 0) {
+        return { abs: webcontainer.workdir, rel: '/' };
+      }
+
+      const projectRootAbs = nodePath.posix.dirname(pkgCandidates[0]);
+      const projectRootRel = relToWorkdir(projectRootAbs);
+
+      return {
+        abs: projectRootAbs,
+        rel: projectRootRel === '.' ? '/' : `/${projectRootRel}`,
+      };
+    } catch {
+      return { abs: webcontainer.workdir, rel: '/' };
+    }
+  }
+
+  /**
+   * Build a dev command (executable + args only) with framework-aware fallback.
+   * Caller is responsible for adding `cd <projectRootAbs> &&` if needed.
+   */
+  #buildDevCommand(projectRootAbs: string): string {
+    try {
+      const files = workbenchStore.files.get();
+      const pkgEntry = Object.entries(files).find(
+        ([filePath, dirent]) => dirent?.type === 'file' && this.#isPackageJsonPath(filePath),
+      );
+      const pkgContent = pkgEntry && pkgEntry[1]?.type === 'file' ? pkgEntry[1].content : '{}';
+      const pkg = JSON.parse(pkgContent);
+      const hasDev = Boolean(pkg?.scripts?.dev);
+      const deps = { ...(pkg?.dependencies || {}), ...(pkg?.devDependencies || {}) } as Record<string, string>;
+      const hasVite = typeof deps['vite'] === 'string';
+      const hasNext = typeof deps['next'] === 'string';
+
+      if (hasDev) {
+        if (hasVite) {
+          return `pnpm run dev || pnpm exec vite`;
+        }
+        if (hasNext) {
+          return `pnpm run dev || pnpm exec next dev`;
+        }
+        return `pnpm run dev`;
+      }
+      if (hasVite) {
+        return `pnpm exec vite`;
+      }
+      if (hasNext) {
+        return `pnpm exec next dev`;
+      }
+      // Unknown framework - attempt dev anyway
+      return `pnpm run dev`;
+    } catch {
+      return `pnpm run dev`;
+    }
+  }
 
   actions: ActionsMap = map({});
 
@@ -123,7 +197,7 @@ export class ActionRunner {
           break;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       this.#updateAction(actionId, { status: 'failed', error: 'Action failed' });
 
       // re-throw the error to be caught in the promise chain
@@ -136,11 +210,94 @@ export class ActionRunner {
       unreachable('Expected shell action');
     }
 
-    const webcontainer = await this.#webcontainer;
-    const isDevServerCommand = this.#isDevServerCommand(action.content);
+    const actionId = Object.keys(this.actions.get()).find((id) => this.actions.get()[id] === action);
+    const isDevServerCommandOriginal = this.#isDevServerCommand(action.content);
 
-    // Clean up shell command to avoid jsh compatibility issues
+    if (isDevServerCommandOriginal) {
+      logger.info('⚙️ Delegating dev server command to FilesStore bootstrap');
+
+      if (action.abortSignal.aborted) {
+        if (actionId) {
+          this.#updateAction(actionId, { status: 'aborted' });
+        }
+        return;
+      }
+
+      // Avoid cascading retries; rely on FilesStore to guard the call
+      workbenchStore.filesStore?.tryBootstrap?.();
+
+      if (actionId) {
+        const status = action.abortSignal.aborted ? 'aborted' : 'complete';
+        this.#updateAction(actionId, { status });
+      }
+
+      return;
+    }
+
+    // Gate non-dev-server shell commands when WebContainer isn't ready
+    if (!webcontainerContext.ready) {
+      logger.info('⏭️ WebContainer not ready; deferring shell command until container initializes');
+      
+      if (actionId) {
+        // Mark as complete to avoid blocking the UI; FilesStore will handle install automatically
+        this.#updateAction(actionId, { status: 'complete' });
+      }
+      
+      return;
+    }
+
+    const webcontainer = await this.#webcontainer;
+    // Normalize and sanitize command for WebContainer environment (prefer pnpm over npm/yarn)
     let cleanedCommand = action.content;
+
+    // Strip any residual bolt tags that may leak into content
+    cleanedCommand = cleanedCommand
+      .replace(/<\/?boltAction[^>]*>/gi, '')
+      .replace(/<\/?boltArtifact[^>]*>/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // Normalize to pnpm (prevent concatenation issues like "npmpnpm")
+    function normalizeToPnpm(cmd: string): string {
+      // Collapse whitespace
+      let c = cmd.trim().replace(/\s+/g, ' ');
+
+      // CRITICAL FIX: Remove duplicate/malformed package manager prefixes first
+      // Handle cases like "npm pnpm install", "pnpm pnpm install", "npm npm install"
+      c = c.replace(/^(npm|yarn|pnpm)\s+(npm|yarn|pnpm)\s+/i, '$2 ');
+      
+      // Also handle triple duplicates (just in case)
+      c = c.replace(/^(npm|yarn|pnpm)\s+(npm|yarn|pnpm)\s+(npm|yarn|pnpm)\s+/i, '$3 ');
+
+      // Replace full command patterns to avoid partial matches
+      if (/^npm\s+install\b/i.test(c) || /^yarn\s+install\b/i.test(c)) {
+        return 'pnpm install';
+      }
+      if (/^npm\s+run\s+dev\b/i.test(c) || /^yarn\s+dev\b/i.test(c)) {
+        return 'pnpm run dev';
+      }
+      if (/^npm\s+run\s+start\b/i.test(c) || /^yarn\s+start\b/i.test(c)) {
+        return 'pnpm run start';
+      }
+      if (/^npm\s+i\b/i.test(c)) {
+        return 'pnpm i';
+      }
+      if (/^yarn\s+add\b/i.test(c)) {
+        return 'pnpm add';
+      }
+      if (/^npx\b/i.test(c)) {
+        return c.replace(/^npx\b/, 'pnpm dlx');
+      }
+
+      // For other commands, only replace npm/yarn if NOT already pnpm
+      if (!/^pnpm\b/i.test(c)) {
+        c = c.replace(/\bnpm\b/g, 'pnpm').replace(/\byarn\b/g, 'pnpm').replace(/\bnpx\b/g, 'pnpm dlx');
+      }
+      
+      return c;
+    }
+
+    cleanedCommand = normalizeToPnpm(cleanedCommand);
     
     // Fix jsh incompatibilities - remove problematic redirect operators and pipes
     cleanedCommand = cleanedCommand
@@ -162,10 +319,24 @@ export class ActionRunner {
     }
 
     try {
+      const { abs: projectRootAbs } = await this.#getProjectRoot();
+
+      // For install/dev commands, ensure we run in PROJECT_ROOT and set env
+      const isInstall = /\bpnpm\s+(install|i)(\s|$)/.test(cleanedCommand);
+      if (isInstall) {
+        cleanedCommand = `cd ${projectRootAbs} && pnpm install`;
+      }
+      if (isDevServerCommandOriginal) {
+        cleanedCommand = this.#buildDevCommand(projectRootAbs);
+      }
       // Use jsh with cleaned command
-      const process = await webcontainer.spawn('/bin/jsh', ['-c', cleanedCommand], {
-        env: { npm_config_yes: true },
-      });
+      const isDevServerCommand = this.#isDevServerCommand(cleanedCommand);
+      const env = {
+        npm_config_yes: true as unknown as string,
+        HOST: '0.0.0.0',
+      } as Record<string, string>;
+
+      const process = await webcontainer.spawn('/bin/jsh', ['-c', cleanedCommand], { env });
 
       action.abortSignal.addEventListener('abort', () => {
         process.kill();
@@ -201,24 +372,30 @@ export class ActionRunner {
           }
         }
       }
-    } catch (shellError) {
+    } catch (error: unknown) {
       // Handle shell execution errors gracefully
-      logger.error('Shell command execution failed:', shellError);
-      const errorMessage = shellError instanceof Error ? shellError.message : String(shellError);
+      let errorObject: Error;
+      if (error instanceof Error) {
+        errorObject = error as Error;
+      } else {
+        errorObject = new Error(String(error));
+      }
+      logger.error('Shell command execution failed:', errorObject);
+      const errorMessage = errorObject.message;
       
       // Send error to terminals
       const terminals = this.#terminalStore?.getTerminals() ?? [];
       for (const { terminal } of terminals) {
         terminal.write(`\n❌ Shell command failed: ${errorMessage}\n`);
         terminal.write(`Command: ${cleanedCommand}\n`);
-        if (isDevServerCommand) {
+        if (isDevServerCommandOriginal) {
           terminal.write(`💡 This was a dev server command. Files are still created and accessible in the workbench.\n`);
-          terminal.write(`🔗 Try checking http://localhost:3000 manually if you set up a dev server locally.\n`);
+        terminal.write(`🔗 Try checking the dev server manually in your local environment.\n`);
         }
       }
       
       // For dev server commands, try to continue gracefully
-      if (isDevServerCommand) {
+      if (isDevServerCommandOriginal) {
         logger.warn('Dev server command failed but continuing - files were still created');
         // Don't throw, just log the issue
       } else {
@@ -234,11 +411,16 @@ export class ActionRunner {
   #isDevServerCommand(command: string): boolean {
     const devServerPatterns = [
       /npm\s+run\s+dev/,
+      /pnpm\s+run\s+dev/,
       /yarn\s+dev/,
       /pnpm\s+dev/,
       /vite\s*$/,
       /vite\s+dev/,
       /next\s+dev/,
+      /next\s+start/,
+      /pnpm\s+run\s+start/,
+      /npm\s+run\s+start/,
+      /yarn\s+start/,
       /remix\s+dev/,
       /nuxt\s+dev/,
       /svelte-kit\s+dev/,
@@ -290,7 +472,7 @@ export class ActionRunner {
         // Write error message to terminals
         const terminals = this.#terminalStore?.getTerminals() ?? [];
         for (const { terminal } of terminals) {
-          terminal.write('\r\n\x1b[31m❌ Dev server failed to start. Make sure dependencies are installed with `npm install`\x1b[0m\r\n');
+          terminal.write('\r\n\x1b[31m❌ Dev server failed to start. Make sure dependencies are installed with `pnpm install`\x1b[0m\r\n');
         }
       }
     }).catch(() => {
@@ -304,7 +486,7 @@ export class ActionRunner {
         completed = true;
         this.#updateAction(actionId, { 
           status: 'failed', 
-          error: 'Dev server failed to start - dependencies may be missing. Run `npm install` first.' 
+          error: 'Dev server failed to start - dependencies may be missing. Run `pnpm install` first.' 
         });
       }
     }, 1000); // 1 second timeout for quick failures
@@ -327,81 +509,96 @@ export class ActionRunner {
       unreachable('Expected file action');
     }
 
-    let webcontainerAvailable = false;
-    let resolvedFilePath = action.filePath;
+    let processedContent = extractCode(action.content);
 
-    try {
-      const webcontainer = await this.#webcontainer;
-      webcontainerAvailable = true;
+    if (this.#isPackageJsonPath(action.filePath)) {
+      const raw = extractCode(action.content, 'json');
+      let pkg = safeJsonParse(raw, null);
 
-      // Resolve relative paths against the container workdir to ensure files end up inside the project directory
-      resolvedFilePath = action.filePath.startsWith('/')
-        ? action.filePath
-        : nodePath.join(webcontainer.workdir, action.filePath);
-
-      let folder = nodePath.dirname(resolvedFilePath);
-
-      // remove trailing slashes
-      folder = folder.replace(/\/+$/g, '');
-
-      if (folder !== '.') {
-        try {
-          await webcontainer.fs.mkdir(folder, { recursive: true });
-          logger.debug('Created folder', folder);
-        } catch (error) {
-          logger.error('Failed to create folder\n\n', error);
-        }
+      if (!pkg) {
+        pkg = {
+          name: 'app',
+          private: true,
+          version: '0.0.0',
+          scripts: {
+            dev: 'vite',
+          },
+          devDependencies: {
+            vite: 'latest',
+          },
+        };
+        logger.info('Generated minimal package.json due to invalid input');
       }
 
-      await webcontainer.fs.writeFile(resolvedFilePath, action.content);
-      logger.debug(`File written to WebContainer: ${action.filePath}`);
-      
-    } catch (error) {
-      webcontainerAvailable = false;
-      logger.warn('WebContainer unavailable, using fallback file storage:', error instanceof Error ? error.message : String(error));
+      if (!pkg.scripts) pkg.scripts = {};
+
+      pkg.scripts.dev ??= 'vite';
+      processedContent = JSON.stringify(pkg, null, 2);
+      logger.debug('Processed package.json');
     }
 
-    // Fallback: Always update the FilesStore so files are visible in the workbench
-    // This handles both WebContainer failures and provides immediate UI updates
+    if (webcontainerContext.ready) {
+      try {
+        await workbenchStore.filesStore?.saveFile(action.filePath, processedContent);
+        logger.debug(`File written to WebContainer via FilesStore: ${action.filePath}`);
+        return;
+      } catch (error) {
+        logger.error('Failed to write file via WebContainer:', error);
+        throw error;
+      }
+    }
+
+    if (!webContainerUnavailableLogged) {
+      logger.warn('WebContainer not ready; using fallback file storage');
+      webContainerUnavailableLogged = true;
+    }
+
     try {
-      // Normalize path for FilesStore (use forward slashes, ensure leading slash)
-      let normalizedPath = action.filePath.replace(/\\/g, '/');
-      if (!normalizedPath.startsWith('/')) {
-        normalizedPath = '/' + normalizedPath;
+      const absPath = absInWorkdir(action.filePath);
+      const currentFiles = workbenchStore.files.get();
+      const existingFile = currentFiles[absPath];
+
+      if (existingFile && existingFile.type === 'file' && existingFile.content === processedContent) {
+        logger.debug(`File ${absPath} unchanged; skipping FilesStore update`);
+        return;
       }
 
-      const currentFiles = workbenchStore.files.get();
       const updatedFiles = {
         ...currentFiles,
-        [normalizedPath]: {
+        [absPath]: {
           type: 'file' as const,
-          content: action.content,
-          isBinary: false
-        }
+          content: processedContent,
+          isBinary: false,
+        },
       };
 
-      // Also create parent directories if they don't exist
-      const parts = normalizedPath.split('/');
-      for (let i = 1; i < parts.length - 1; i++) {
-        const dirPath = '/' + parts.slice(1, i + 1).join('/');
-        if (!updatedFiles[dirPath]) {
-          updatedFiles[dirPath] = {
-            type: 'folder' as const
-          };
+      const relPath = relToWorkdir(absPath);
+      const segments = relPath.split('/');
+      if (segments.length > 1) {
+        let prefix = '';
+        for (let i = 0; i < segments.length - 1; i++) {
+          prefix = prefix ? `${prefix}/${segments[i]}` : segments[i];
+          const dirAbs = absInWorkdir(prefix);
+          if (!updatedFiles[dirAbs]) {
+            updatedFiles[dirAbs] = { type: 'folder' as const };
+          }
         }
       }
 
       workbenchStore.files.set(updatedFiles);
-      
-      if (webcontainerAvailable) {
-        logger.debug(`File written to both WebContainer and FilesStore: ${action.filePath}`);
-      } else {
-        logger.info(`File written to FilesStore (fallback mode): ${action.filePath} - WebContainer not available`);
-      }
-      
+      logger.info(`File written to FilesStore (fallback mode): ${absPath} - WebContainer not available`);
     } catch (fallbackError) {
       logger.error('Failed to write file to fallback storage:', fallbackError);
       throw fallbackError;
+    }
+  }
+
+  #isPackageJsonPath(targetPath: string) {
+    try {
+      const rel = relToWorkdir(targetPath);
+      return rel === 'package.json' || rel.endsWith('/package.json');
+    } catch {
+      return false;
     }
   }
 

@@ -6,6 +6,11 @@ import { settingsStore, setSetting } from '~/lib/stores/settings';
 import { themeStore, type Theme } from '~/lib/stores/theme';
 import { getSettingsDataLayer, type UserProfile, type Subscription, type UsageSummary, type Invoice } from '~/lib/settings/data';
 import { SettingsLayout, ProfileHeader, GeneralCard, SubscriptionCard, KnowledgeCard } from '~/components/settings';
+import { Header } from '~/components/header/Header';
+import { ClientOnly } from 'remix-utils/client-only';
+import { BaseChat } from '~/components/chat/BaseChat';
+import { Chat } from '~/components/chat/Chat.client';
+import { ErrorBoundary } from '~/components/ui/ErrorBoundary';
 
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
@@ -198,23 +203,34 @@ export default function SettingsPage() {
   };
 
   return (
-    <SettingsLayout activeTab={activeTab} onTabChange={setActiveTab}>
-      {error && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-          <div className="flex items-center gap-2 text-red-400">
-            <span className="i-ph:warning text-lg" />
-            <span className="text-sm font-medium">Error loading data</span>
-      </div>
-          <div className="mt-2 text-sm text-red-300">{error}</div>
-          <button
-            onClick={loadData}
-            className="mt-3 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-          >
-            Retry
-          </button>
-      </div>
-      )}
-      {renderContent()}
-    </SettingsLayout>
+    <div className="flex flex-col h-full w-full home-theme bg-app-gradient">
+      <ErrorBoundary>
+        <Header isHome={false} />
+      </ErrorBoundary>
+      <ErrorBoundary>
+        <ClientOnly fallback={<BaseChat isHome={false} />}>
+          {() => <Chat isHome={false} />}
+        </ClientOnly>
+      </ErrorBoundary>
+      
+      <SettingsLayout activeTab={activeTab} onTabChange={setActiveTab}>
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <div className="flex items-center gap-2 text-red-400">
+              <span className="i-ph:warning text-lg" />
+              <span className="text-sm font-medium">Error loading data</span>
+            </div>
+            <div className="mt-2 text-sm text-red-300">{error}</div>
+            <button
+              onClick={loadData}
+              className="mt-3 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {renderContent()}
+      </SettingsLayout>
+    </div>
   );
 }

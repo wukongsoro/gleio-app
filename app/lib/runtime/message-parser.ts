@@ -48,13 +48,14 @@ export interface StreamingMessageParserOptions {
 }
 
 interface MessageState {
-  position: number;
+  processedLength: number;
   insideArtifact: boolean;
   insideAction: boolean;
   currentArtifact?: BoltArtifactData;
   currentAction: BoltActionData;
   actionId: number;
   lastAccessed: number;
+  output: string;
 }
 
 export class StreamingMessageParser {
@@ -123,32 +124,38 @@ export class StreamingMessageParser {
       
       let state = this.#messages.get(messageId);
 
-      if (!state) {
-        state = {
-          position: 0,
-          insideAction: false,
-          insideArtifact: false,
-          currentAction: { content: '' },
-          actionId: 0,
-          lastAccessed: Date.now(),
-        };
+      const initializeState = () => ({
+        processedLength: 0,
+        insideAction: false,
+        insideArtifact: false,
+        currentAction: { content: '' },
+        actionId: 0,
+        lastAccessed: Date.now(),
+        output: '',
+      } satisfies MessageState);
 
+      if (!state) {
+        state = initializeState();
         this.#messages.set(messageId, state);
         this.#messageOrder.push(messageId);
-        
-        // Clean up old messages
         this.#cleanupOldMessages();
       } else {
-        // Update last accessed time
-        state.lastAccessed = Date.now();
+        // Reset state if content shrank (e.g., final message replaces streaming chunk)
+        if (processedInput.length < state.processedLength) {
+          const existingIndex = this.#messageOrder.indexOf(messageId);
+          state = initializeState();
+          this.#messages.set(messageId, state);
+          if (existingIndex === -1) {
+            this.#messageOrder.push(messageId);
+            this.#cleanupOldMessages();
+          }
+        } else {
+          state.lastAccessed = Date.now();
+        }
       }
 
-      // CRITICAL FIX: For streaming messages, always start from position 0
-      // The position should only advance within a single parse call, not across calls
-      let startPosition = 0;
-
       let output = '';
-      let i = startPosition;  // Use 0 instead of state.position
+      let i = state.processedLength;
       let earlyBreak = false;
 
       while (i < processedInput.length) {
@@ -299,10 +306,10 @@ export class StreamingMessageParser {
         }
       }
 
-      // Don't update state.position for streaming - each call should be independent
-      // state.position = i;  // DISABLED for streaming fix
+      state.processedLength = i;
+      state.output += output;
 
-      return output;
+      return state.output;
     } catch (error) {
       logger.error('Error parsing message:', error);
       // Return the original input on error to prevent data loss

@@ -1,5 +1,7 @@
 import { type ActionFunctionArgs } from '@remix-run/cloudflare';
-import OpenAI from 'openai';
+import { generateText } from 'ai';
+import { getOpenRouterModel } from '~/lib/.server/llm/model';
+import { getOpenRouterAPIKey } from '~/lib/.server/llm/api-key';
 
 export async function action(args: ActionFunctionArgs) {
   return researchAction(args);
@@ -8,9 +10,12 @@ export async function action(args: ActionFunctionArgs) {
 async function researchAction({ context, request }: ActionFunctionArgs) {
   try {
     // validate environment variables
-    if (!context.cloudflare.env.OPENAI_API_KEY) {
+
+    const openRouterApiKey = getOpenRouterAPIKey(context.cloudflare.env);
+
+    if (!openRouterApiKey) {
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured. Please set OPENAI_API_KEY.' }),
+        JSON.stringify({ error: 'OpenRouter API key not configured. Please set OPENROUTER_API_KEY.' }),
         {
           status: 500,
           headers: { 'Content-Type': 'application/json' },
@@ -19,12 +24,6 @@ async function researchAction({ context, request }: ActionFunctionArgs) {
     }
 
     const { input } = await request.json<{ input: string }>();
-
-    // initialize OpenAI client with timeout
-    const openai = new OpenAI({
-      timeout: 3600 * 1000,
-      apiKey: context.cloudflare.env.OPENAI_API_KEY,
-    });
 
     const defaultInput = `
 Research the economic impact of semaglutide on global healthcare systems.
@@ -39,27 +38,19 @@ Be analytical, avoid generalities, and ensure that each section supports
 data-backed reasoning that could inform healthcare policy or financial modeling.
 `;
 
-    // use the standard chat completions API instead of the deprecated responses API
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a research assistant. Provide detailed, well-sourced research on the given topic.',
-        },
-        {
-          role: 'user',
-          content: input || defaultInput,
-        },
-      ],
-      max_tokens: 4000,
+    // use the Tongyi DeepResearch model from OpenRouter
+    const model = getOpenRouterModel(openRouterApiKey, 'alibaba/tongyi-deepresearch-30b-a3b:free');
+
+    const response = await generateText({
+      model,
+      system: 'You are a research assistant. Provide detailed, well-sourced research on the given topic.',
+      prompt: input || defaultInput,
       temperature: 0.1,
     });
 
     return new Response(
       JSON.stringify({
-        output_text: response.choices[0]?.message?.content || '',
+        output_text: response.text,
         response,
       }),
       {

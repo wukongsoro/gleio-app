@@ -48,6 +48,15 @@ export function streamText(messages: Messages, env?: Env, options?: StreamingOpt
       new Set([...requestedModelIds, ...envModelIds, ...DEFAULT_OPENROUTER_MODELS]),
     );
 
+    // Enhanced model parameters to prevent repetitive responses
+    const enhancedOptions = {
+      ...optionOverrides,
+      temperature: 0.7, // Balanced creativity vs consistency
+      presencePenalty: 0.1, // Reduce repetitive phrases
+      frequencyPenalty: 0.1, // Reduce repetitive words
+      maxTokens: 4000, // Reasonable response length
+    };
+
     if (openRouterApiKey) {
       let lastError: unknown;
 
@@ -56,7 +65,7 @@ export function streamText(messages: Messages, env?: Env, options?: StreamingOpt
           console.info(`[llm] Attempting OpenRouter model: ${modelId}`);
 
           return _streamText({
-            ...optionOverrides,
+            ...enhancedOptions,
             model: getOpenRouterModel(openRouterApiKey, modelId),
             system: getSystemPrompt(),
             messages,
@@ -76,7 +85,7 @@ export function streamText(messages: Messages, env?: Env, options?: StreamingOpt
 
     if (openaiApiKey) {
       return _streamText({
-        ...optionOverrides,
+        ...enhancedOptions,
         model: getOpenAIModel(openaiApiKey),
         system: getSystemPrompt(),
         messages,
@@ -91,7 +100,7 @@ export function streamText(messages: Messages, env?: Env, options?: StreamingOpt
     }
 
     return _streamText({
-      ...optionOverrides,
+      ...enhancedOptions,
       model: getAnthropicModel(anthropicKey),
       system: getSystemPrompt(),
       messages,

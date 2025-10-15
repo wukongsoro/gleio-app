@@ -200,16 +200,18 @@ const toolsList = [
 ];
 
 interface PromptBoxProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onSubmit'> {
-  onSubmit?: (value: string, imageFile?: File) => void;
+  onSubmit?: (value: string, imageFile?: File, deepSearch?: boolean) => void;
   onEnhance?: () => void;
   enhancingPrompt?: boolean;
   isStreaming?: boolean;
   onStop?: () => void;
+  deepSearchEnabled?: boolean;
+  onToggleDeepSearch?: () => void;
 }
 
 // --- The Final, Self-Contained PromptBox Component ---
 export const PromptBox = React.forwardRef<HTMLTextAreaElement, PromptBoxProps>(
-  ({ className, onSubmit, onEnhance, enhancingPrompt, value: externalValue, onChange, ...props }, ref) => {
+  ({ className, onSubmit, onEnhance, enhancingPrompt, value: externalValue, onChange, deepSearchEnabled = false, onToggleDeepSearch, ...props }, ref) => {
     const internalTextareaRef = React.useRef<HTMLTextAreaElement>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [internalValue, setInternalValue] = React.useState("");
@@ -260,7 +262,7 @@ export const PromptBox = React.forwardRef<HTMLTextAreaElement, PromptBoxProps>(
 
     const handleSubmit = () => {
       if (hasValue && onSubmit) {
-        onSubmit(String(value), imageFile || undefined);
+        onSubmit(String(value), imageFile || undefined, deepSearchEnabled);
         if (!isControlled) {
           setInternalValue("");
         }
@@ -370,6 +372,29 @@ export const PromptBox = React.forwardRef<HTMLTextAreaElement, PromptBoxProps>(
                   <p>Attach image</p>
                 </TooltipContent>
               </Tooltip>
+              
+              {onToggleDeepSearch && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      type="button" 
+                      onClick={onToggleDeepSearch} 
+                      className={`flex h-8 items-center gap-2 rounded-full px-3 text-sm transition-colors focus-visible:outline-none ${
+                        deepSearchEnabled 
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#515151]'
+                      }`}
+                    >
+                      <SparkleIcon className="h-4 w-4" />
+                      {deepSearchEnabled && <span className="font-medium">Deep Search</span>}
+                      <span className="sr-only">Toggle Deep Search</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" showArrow={true}>
+                    <p>{deepSearchEnabled ? 'Deep Search enabled' : 'Enable Deep Search'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <Tooltip>

@@ -7,13 +7,21 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Ensure singleton Supabase client in the browser context and use a custom storage key
+const globalAny = typeof window !== 'undefined' ? (window as any) : {};
+
+export const supabase = globalAny.__gleio_supabase__ ?? createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storageKey: 'gleio-auth',
   }
 })
+
+if (typeof window !== 'undefined') {
+  (window as any).__gleio_supabase__ = supabase;
+}
 
 // Auth helper functions
 export const auth = {

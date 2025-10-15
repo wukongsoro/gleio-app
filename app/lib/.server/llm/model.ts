@@ -22,7 +22,7 @@ export function getOpenRouterModel(apiKey: string, modelId?: string): LanguageMo
   });
 
   // Use specified model if provided; otherwise fall back to OpenRouter's auto model
-  return openaiCompat(modelId || 'openrouter/auto') as unknown as LanguageModel;
+  return openaiCompat.chat(modelId || 'openrouter/auto') as unknown as LanguageModel;
 }
 
 export function getOpenAIModel(apiKey: string): LanguageModel {
@@ -33,4 +33,3 @@ export function getOpenAIModel(apiKey: string): LanguageModel {
   // choose a cost-effective capable default
   return openai('gpt-4o-mini') as unknown as LanguageModel;
 }
-

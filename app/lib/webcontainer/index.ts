@@ -7,6 +7,7 @@ interface WebContainerContext {
   retryCount: number;
   disabled: boolean;
   memoryConstrained: boolean;
+  ready: boolean; // Global flag to indicate if WebContainer is ready for operations
 }
 
 export const webcontainerContext: WebContainerContext = import.meta.hot?.data.webcontainerContext ?? {
@@ -14,6 +15,7 @@ export const webcontainerContext: WebContainerContext = import.meta.hot?.data.we
   retryCount: 0,
   disabled: false,
   memoryConstrained: false,
+  ready: false,
 };
 
 if (import.meta.hot) {
@@ -24,8 +26,12 @@ export let webcontainer: Promise<WebContainer> = new Promise(() => {
   // noop for ssr
 });
 
-const MAX_RETRY_ATTEMPTS = 1; // Single attempt to prevent memory exhaustion
-const RETRY_DELAY = 5000; // Longer delay to allow memory recovery
+// One-time log when client module loads
+if (typeof window !== 'undefined' && !import.meta.env.SSR) {
+  console.log('🚀 WebContainer client module loaded');
+}
+
+const MAX_RETRY_ATTEMPTS = 2; // Reduce retries to avoid instance pressure after OOM
 const CONTAINER_TIMEOUT = 30000; // Reasonable timeout to fail faster and provide feedback
 const MEMORY_THRESHOLD = 4 * 1024 * 1024 * 1024; // 4GB minimum memory
 
@@ -122,7 +128,7 @@ function detectMemoryConstraints(): boolean {
   }
 }
 
-// Check if WebContainer should be disabled
+// Check if WebContainer should be disabled (only user-controlled disabling)
 function shouldDisableWebContainer(): boolean {
   // Check environment variable or localStorage setting
   if (typeof window !== 'undefined') {
@@ -133,22 +139,7 @@ function shouldDisableWebContainer(): boolean {
     }
   }
 
-  // Check if already marked as memory constrained
-  if (webcontainerContext.memoryConstrained) {
-    console.log('WebContainer disabled due to previous memory constraints');
-    return true;
-  }
-
-  // Detect current memory constraints
-  const memoryConstrained = detectMemoryConstraints();
-  if (memoryConstrained) {
-    webcontainerContext.memoryConstrained = true;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('webcontainer_disabled', 'true');
-    }
-    return true;
-  }
-
+  // Memory constraints are now warnings only - don't disable automatically
   return false;
 }
 
@@ -159,9 +150,7 @@ export function setWebContainerEnabled(enabled: boolean) {
     webcontainerContext.disabled = !enabled;
 
     if (enabled) {
-      webcontainerContext.memoryConstrained = false;
-      // Clear any related cache entries
-      localStorage.removeItem('memory_constrained');
+      webcontainerContext.ready = false; // Will be set to true when re-initialized
       console.log('WebContainer re-enabled. Please refresh the page to take effect.');
     } else {
       console.log('WebContainer disabled. Running in chat-only mode.');
@@ -176,12 +165,11 @@ export function checkAndFixWebContainer(): { enabled: boolean; status: string; c
   }
 
   const disabledByUser = localStorage.getItem('webcontainer_disabled') === 'true';
-  const memoryConstrained = localStorage.getItem('memory_constrained') === 'true';
 
-  if (disabledByUser || memoryConstrained) {
+  if (disabledByUser) {
     return {
       enabled: false,
-      status: disabledByUser ? 'Disabled by user' : 'Disabled due to memory constraints',
+      status: 'Disabled by user',
       canFix: true
     };
   }
@@ -197,14 +185,12 @@ export function forceResetWebContainer(): boolean {
   }
 
   try {
-    // Clear all WebContainer related localStorage entries
+    // Clear WebContainer related localStorage entries (only user-controlled ones)
     localStorage.removeItem('webcontainer_disabled');
-    localStorage.removeItem('memory_constrained');
-    localStorage.removeItem('bolt_webcontainer_error');
 
     // Reset context state
     webcontainerContext.disabled = false;
-    webcontainerContext.memoryConstrained = false;
+    webcontainerContext.ready = false;
     webcontainerContext.error = undefined;
     webcontainerContext.retryCount = 0;
 
@@ -231,11 +217,34 @@ function forceGarbageCollection() {
 }
 
 async function initWebContainer(): Promise<WebContainer> {
-  // Check if WebContainer should be disabled due to memory constraints
+  console.log('🔄 initWebContainer called');
+
+  // Check browser compatibility
+  if (typeof window !== 'undefined') {
+    const isCrossOriginIsolated = window.crossOriginIsolated;
+    const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
+
+    console.log('🔍 Browser compatibility check:', {
+      crossOriginIsolated: isCrossOriginIsolated,
+      hasSharedArrayBuffer,
+      userAgent: navigator.userAgent.substring(0, 100)
+    });
+
+    if (!isCrossOriginIsolated) {
+      throw new Error('WebContainer requires cross-origin isolation (COOP/COEP headers)');
+    }
+
+    if (!hasSharedArrayBuffer) {
+      throw new Error('WebContainer requires SharedArrayBuffer support');
+    }
+  }
+
+  // Check if WebContainer should be disabled (only user-controlled)
   const shouldDisable = shouldDisableWebContainer();
   if (shouldDisable) {
     webcontainerContext.disabled = true;
-    const error = new Error('WebContainer disabled due to memory constraints or user setting');
+    webcontainerContext.ready = false;
+    const error = new Error('WebContainer disabled by user setting');
     webcontainerContext.error = error;
     console.log('WebContainer initialization skipped - running in chat-only mode');
 
@@ -243,8 +252,8 @@ async function initWebContainer(): Promise<WebContainer> {
     if (typeof window !== 'undefined') {
       const event = new CustomEvent('webcontainer-error', {
         detail: {
-          message: 'WebContainer disabled due to memory constraints or user setting',
-          reason: webcontainerContext.memoryConstrained ? 'memory' : 'user_setting',
+          message: 'WebContainer disabled by user setting',
+          reason: 'user_setting',
           canFix: true,
           fixInstructions: 'To re-enable WebContainer, run: window.enableWebContainer() in the browser console, then refresh the page.'
         }
@@ -253,6 +262,14 @@ async function initWebContainer(): Promise<WebContainer> {
     }
 
     throw error;
+  }
+
+  // Check memory constraints (warnings only, don't block)
+  if (typeof window !== 'undefined') {
+    const hasMemoryWarnings = detectMemoryConstraints();
+    if (hasMemoryWarnings) {
+      console.warn('⚠️ Memory constraints detected - WebContainer may be slow or unstable, but will attempt initialization');
+    }
   }
 
   // Enhanced memory cleanup before initialization
@@ -268,12 +285,6 @@ async function initWebContainer(): Promise<WebContainer> {
 
       // Small delay to allow memory to stabilize
       await new Promise(resolve => setTimeout(resolve, 200));
-
-      // Final memory check after cleanup
-      const stillConstrained = detectMemoryConstraints();
-      if (stillConstrained) {
-        console.warn('Memory constraints persist after cleanup - proceeding with caution');
-      }
     } catch (e) {
       console.warn('Memory optimization failed, proceeding anyway:', e);
     }
@@ -326,10 +337,17 @@ async function initWebContainer(): Promise<WebContainer> {
         }
 
         webcontainerContext.loaded = true;
+        webcontainerContext.ready = true;
         webcontainerContext.error = undefined;
         webcontainerContext.retryCount = attempt;
 
         console.log('✅ WebContainer initialized successfully');
+
+        // Dispatch readiness event for FilesStore
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('webcontainer-ready'));
+        }
+
         return container;
       } catch (error) {
         console.error(`❌ WebContainer initialization attempt ${attempt + 1} failed:`, error);
@@ -343,56 +361,28 @@ async function initWebContainer(): Promise<WebContainer> {
                              errorMessage.includes('OutOfMemory') ||
                              errorMessage.includes('RangeError');
 
-        if (isMemoryError) {
-          console.warn('💾 Memory error detected - attempting recovery');
-
-          // Try aggressive memory cleanup
-          forceGarbageCollection();
-
-          // Wait longer for memory to recover
-          await sleep(RETRY_DELAY * 2);
-
-          // Check if memory situation improved
-          const stillConstrained = detectMemoryConstraints();
-          if (!stillConstrained) {
-            console.log('Memory situation improved - retrying...');
-            continue;
-          }
-
-          // If still constrained after cleanup, disable but allow manual override
-          console.warn('Memory constraints persist - disabling WebContainer but allowing manual override');
-          webcontainerContext.memoryConstrained = true;
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('memory_constrained', 'true');
-
-            // Emit detailed error event with recovery options
-            const event = new CustomEvent('webcontainer-error', {
-              detail: {
-                message: 'WebContainer failed due to memory constraints',
-                reason: 'memory_error',
-                canFix: true,
-                error: errorMessage,
-                fixInstructions: 'Options:\n1. Close other browser tabs and refresh\n2. Run: window.forceEnableWebContainer() for manual override\n3. Run: window.checkMemory() to see current memory status'
-              }
-            });
-            window.dispatchEvent(event);
-          }
-          throw new Error('WebContainer disabled due to memory constraints');
-        }
-
-        // For non-memory errors, try again after cleanup
+        // Always try recovery for any error type (not just memory)
         forceGarbageCollection();
 
+        // If the first attempt failed due to OOM/instances, do not spam retries
+        if (attempt === 0 && (isMemoryError || /Unable to create more instances/i.test(errorMessage))) {
+          console.log('⛔ Halting further retries due to memory/instance constraint');
+          break;
+        }
+
         if (attempt < MAX_RETRY_ATTEMPTS - 1) {
-          console.log(`⏳ Waiting ${RETRY_DELAY}ms before retry...`);
-          await sleep(RETRY_DELAY);
+          // Progressive backoff: 1s, 3s, 5s
+          const backoffDelay = attempt === 0 ? 1000 : attempt === 1 ? 3000 : 5000;
+          console.log(`⏳ Waiting ${backoffDelay}ms before retry...`);
+          await sleep(backoffDelay);
         }
       }
     }
 
     // If we get here, all attempts failed
     console.error('All WebContainer initialization attempts failed');
-    webcontainerContext.disabled = true;
+    webcontainerContext.ready = false;
+    webcontainerContext.loaded = false;
 
     const finalError = new Error('WebContainer initialization failed after all retry attempts');
     webcontainerContext.error = finalError;
@@ -437,8 +427,38 @@ export function clearWebContainerCache() {
 }
 
 if (!import.meta.env.SSR) {
+  console.log('🌐 WebContainer module initializing on client');
+
+  // For debugging: ensure we're in the right environment
+  console.log('🌐 Environment check:', {
+    isSSR: import.meta.env.SSR,
+    hasWindow: typeof window !== 'undefined',
+    hasImportMetaHot: !!import.meta.hot
+  });
+
   // Do not auto-reset on startup; preserve user settings to avoid retry loops
-  webcontainer = import.meta.hot?.data.webcontainer ?? initWebContainer();
+  const cachedWebContainer = import.meta.hot?.data.webcontainer;
+
+  // Only reuse cached promise if it exists and hasn't been rejected
+  if (cachedWebContainer && cachedWebContainer !== webcontainer) {
+    console.log('🌐 Found cached WebContainer promise, checking status...');
+    // Check if the cached promise is still viable by attaching a handler
+    cachedWebContainer.then(
+      (result: WebContainer) => {
+        console.log('🌐 Cached WebContainer promise resolved, reusing it');
+        // Promise resolved successfully, reuse it
+        webcontainer = cachedWebContainer;
+      },
+      (error: Error) => {
+        console.log('🌐 Cached WebContainer promise rejected, creating fresh one:', error.message);
+        // Promise was rejected, don't reuse it - create fresh one
+        webcontainer = initWebContainer();
+      }
+    );
+  } else {
+    console.log('🌐 No cached WebContainer promise, initializing fresh instance');
+    webcontainer = initWebContainer();
+  }
 
   if (import.meta.hot) {
     import.meta.hot.data.webcontainer = webcontainer;
@@ -500,6 +520,22 @@ if (typeof window !== 'undefined') {
       console.log('💡 Tip: You can also run resetWebContainer() anytime to clear all WebContainer settings.');
     }
     return success;
+  };
+
+  // Retry WebContainer initialization
+  (window as any).retryWebContainer = () => {
+    console.log('🔄 Retrying WebContainer initialization...');
+    webcontainerContext.error = undefined;
+    webcontainerContext.ready = false;
+    webcontainerContext.loaded = false;
+    webcontainer = initWebContainer();
+
+    // Update HMR cache with new promise
+    if (import.meta.hot) {
+      import.meta.hot.data.webcontainer = webcontainer;
+    }
+
+    return webcontainer;
   };
 
   // Emergency memory cleanup function
@@ -590,7 +626,6 @@ if (typeof window !== 'undefined') {
       }
 
       result.webContainerEnabled = !webcontainerContext.disabled;
-      result.memoryConstrained = webcontainerContext.memoryConstrained;
       result.webContainerStatus = webcontainerContext.loaded ? 'Loaded' : webcontainerContext.error ? 'Error' : 'Initializing';
 
       console.log('🔍 Memory Status:', result);
@@ -660,15 +695,10 @@ if (typeof window !== 'undefined') {
     console.log('\n💡 Recommendations:');
     const recommendations = [];
 
-    if (webcontainerContext.memoryConstrained) {
-      recommendations.push('1. Memory constraints detected - try closing other browser tabs');
-      recommendations.push('2. Run: window.emergencyMemoryCleanup() to free memory');
-      recommendations.push('3. Run: window.forceEnableWebContainer() to bypass memory checks');
-    }
-
     if (webcontainerContext.error) {
-      recommendations.push('4. Run: window.resetWebContainer() to reset all settings');
-      recommendations.push('5. Refresh the page after running reset');
+      recommendations.push('1. WebContainer failed to initialize - this is normal on some systems');
+      recommendations.push('2. Run: window.resetWebContainer() to reset all settings');
+      recommendations.push('3. Refresh the page after running reset');
     }
 
     if (memoryStatus?.recommendations) {

@@ -54,24 +54,9 @@ export class SettingsDataLayer {
 
   private async initializeSupabase() {
     try {
-      // Dynamic import to avoid build issues
-      const { createClient } = await import('@supabase/supabase-js');
-
-      // Get environment variables
-      const supabaseUrl = typeof window !== 'undefined'
-        ? (window as any).ENV?.VITE_SUPABASE_URL || import.meta.env?.VITE_SUPABASE_URL
-        : process.env?.VITE_SUPABASE_URL;
-
-      const supabaseKey = typeof window !== 'undefined'
-        ? (window as any).ENV?.VITE_SUPABASE_ANON_KEY || import.meta.env?.VITE_SUPABASE_ANON_KEY
-        : process.env?.VITE_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseKey) {
-        console.warn('Supabase configuration missing. Settings data will be unavailable.');
-        return;
-      }
-
-      this.supabase = createClient(supabaseUrl, supabaseKey);
+      // Reuse the singleton client to avoid multiple GoTrue instances
+      const { supabase } = await import('~/lib/supabase');
+      this.supabase = supabase;
       this.setupRealtimeSubscriptions();
     } catch (error) {
       console.error('Failed to initialize Supabase:', error);
